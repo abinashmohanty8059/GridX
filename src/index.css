@@ -1,0 +1,257 @@
+@import "tailwindcss";
+
+@theme {
+  /* Primary */
+  --color-primary: #0061a4;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #2196f3;
+  --color-on-primary-container: #002c4f;
+
+  /* Secondary */
+  --color-secondary: #525f71;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #d3e1f6;
+  --color-on-secondary-container: #566475;
+
+  /* Surfaces */
+  --color-surface: #f7f9fb;
+  --color-on-surface: #191c1e;
+  --color-surface-variant: #e0e3e5;
+  --color-on-surface-variant: #404752;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f2f4f6;
+  --color-surface-container: #eceef0;
+  --color-surface-container-high: #e6e8ea;
+
+  /* Custom Navy Accents from Stitch MD */
+  --color-navy: #0D1B2A;
+  --color-border: #E2E8F0;
+
+  /* Error / Status */
+  --color-error: #ba1a1a;
+  --color-on-error: #ffffff;
+  --color-error-container: #ffdad6;
+  --color-on-error-container: #93000a;
+  
+  /* Semantic Status mapped */
+  --color-critical: #ba1a1a;
+  --color-critical-light: #ffdad6;
+  --color-warning: #F59E0B;
+  --color-warning-light: #FEF3C7;
+  --color-success: #10B981;
+  --color-info: #2196f3;
+
+  /* Fonts */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  
+  /* Spacing */
+  --spacing-unit: 4px;
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-gutter: 16px;
+  --spacing-container: 24px;
+
+  /* Radius */
+  --radius-sm: 0.25rem;
+  --radius-DEFAULT: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+}
+
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-color: var(--color-surface);
+    color: var(--color-on-surface);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  body {
+    min-height: 100vh;
+    overflow: hidden;
+  }
+
+  #root {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--color-surface);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-surface-variant);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-on-surface-variant);
+  }
+}
+
+@layer components {
+  /* Surface 1: Glassmorphism Card from Stitch MD */
+  .glass-card {
+    background: rgba(255, 255, 255, 0.80);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    transition: box-shadow 0.2s ease, transform 0.15s ease;
+  }
+
+  .glass-card:hover {
+    box-shadow: 0 4px 16px rgba(13, 27, 42, 0.08); /* Deep Ambient Shadow */
+    transform: translateY(-1px);
+  }
+
+  /* Surface 2: Popovers/Elevated */
+  .glass-card-elevated {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    box-shadow: 0 10px 25px rgba(13, 27, 42, 0.08);
+  }
+
+  .kpi-card {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(180deg, #FFFFFF 0%, #F1F5F9 100%);
+  }
+
+  .status-led {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    position: relative;
+  }
+
+  .status-led::after {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: 50%;
+    opacity: 0.3;
+  }
+
+  .status-led-online {
+    background: var(--color-success);
+    box-shadow: 0 0 6px rgba(16, 185, 129, 0.4);
+  }
+
+  .status-led-offline {
+    background: var(--color-error);
+    box-shadow: 0 0 6px rgba(186, 26, 26, 0.4);
+  }
+
+  .severity-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .severity-critical {
+    background: var(--color-error-container);
+    color: var(--color-on-error-container);
+  }
+
+  .sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 16px;
+    border-radius: var(--radius-DEFAULT);
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    position: relative;
+  }
+
+  .sidebar-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.85);
+  }
+
+  .sidebar-item-active {
+    background: rgba(33, 150, 243, 0.15);
+    color: #fff;
+  }
+
+  .sidebar-item-active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 24px;
+    background: var(--color-primary-container);
+    border-radius: 0 3px 3px 0;
+  }
+
+  /* Typography Utilities */
+  .data-mono {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    line-height: 16px;
+  }
+
+  .label-caps {
+    font-family: var(--font-sans);
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 16px;
+    letterSpacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--color-on-surface-variant);
+  }
+}
+
+.ag-theme-alpine {
+  --ag-background-color: var(--color-surface-container-lowest);
+  --ag-header-background-color: var(--color-surface-container-low);
+  --ag-odd-row-background-color: var(--color-surface);
+  --ag-border-color: var(--color-border);
+  --ag-row-hover-color: var(--color-primary-fixed);
+  --ag-font-family: 'Inter', sans-serif;
+  --ag-font-size: 13px;
+  --ag-header-font-weight: 700;
+  --ag-header-font-size: 11px;
+  --ag-cell-horizontal-padding: 12px;
+  --ag-row-height: 42px;
+  --ag-header-height: 40px;
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
