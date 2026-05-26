@@ -284,9 +284,9 @@ export default function IEC104Analysis() {
               </div>
             </div>
 
-            <div className="grid grid-cols-5 md:grid-cols-10 gap-2 p-2 border border-border-light rounded-lg bg-slate-50 w-full">
+            <div className="grid grid-cols-5 md:grid-cols-10 gap-2 p-2 border border-border rounded-lg bg-surface-container w-full">
               {visualSlots.map((slot) => {
-                let color = 'bg-slate-200 text-slate-500 hover:bg-slate-300';
+                let color = 'bg-surface-container-high text-on-surface-variant hover:bg-surface-container-high/80';
                 let border = 'border-transparent';
                 if (slot.status === 'mapped') {
                   if (slot.signals.length > 1) {
@@ -312,7 +312,7 @@ export default function IEC104Analysis() {
                   >
                     <span>{slot.address}</span>
                     {slot.signals.length > 1 && (
-                      <span className="text-[8px] bg-white text-critical rounded px-0.5 font-sans mt-0.5 font-bold">
+                      <span className="text-[8px] bg-surface-container-lowest text-critical rounded px-0.5 font-sans mt-0.5 font-bold">
                         ERR
                       </span>
                     )}
@@ -337,14 +337,14 @@ export default function IEC104Analysis() {
                 collisionList.map((col) => (
                   <div
                     key={col.address}
-                    className="p-3 rounded-lg border border-red-200 bg-red-50/30 flex justify-between items-start gap-4 text-xs"
+                    className="p-3 rounded-lg border border-critical/20 bg-critical/5 flex justify-between items-start gap-4 text-xs"
                   >
                     <div>
-                      <span className="font-mono font-bold text-critical bg-red-100 px-2 py-0.5 rounded text-xs mr-2">
+                      <span className="font-mono font-bold text-critical bg-critical/10 px-2 py-0.5 rounded text-xs mr-2">
                         {col.address}
                       </span>
                       <span className="font-semibold text-on-surface">Overlap Conflict</span>
-                      <div className="mt-1 space-y-1 text-[11px] text-on-surface-variant pl-3 border-l-2 border-red-300">
+                      <div className="mt-1 space-y-1 text-[11px] text-on-surface-variant pl-3 border-l-2 border-critical/30">
                         {col.signals.map((s, idx) => (
                           <div key={idx}>
                             • <span className="font-semibold">{s.feederName}</span> — {s.description}{' '}
@@ -367,11 +367,11 @@ export default function IEC104Analysis() {
           <div className="bg-surface-container-lowest border border-border rounded-2xl w-full max-w-5xl h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-scale-up">
             
             {/* Modal Header */}
-            <div className="px-6 py-4 bg-white border-b border-border flex justify-between items-center shrink-0">
+            <div className="px-6 py-4 bg-surface-container-lowest border-b border-border flex justify-between items-center shrink-0">
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="text-lg font-bold text-on-surface tracking-tight">Full Telemetry Address Registry</h3>
-                  <span className="bg-slate-100 text-slate-700 font-mono text-[10px] font-bold px-2 py-0.5 rounded-full border border-border/30">
+                  <span className="bg-surface-container text-on-surface-variant font-mono text-[10px] font-bold px-2 py-0.5 rounded-full border border-border">
                     Range: {rangeStats.minAddr} - {rangeStats.maxAddr}
                   </span>
                 </div>
@@ -382,14 +382,14 @@ export default function IEC104Analysis() {
               
               <button
                 onClick={() => setIsFullGridOpen(false)}
-                className="p-1.5 hover:bg-slate-100 rounded-lg text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
+                className="p-1.5 hover:bg-surface-container rounded-lg text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
               </button>
             </div>
             
             {/* Modal Legend */}
-            <div className="px-6 py-3 bg-slate-50 border-b border-border-light flex justify-between items-center text-xs shrink-0 flex-wrap gap-2">
+            <div className="px-6 py-3 bg-surface-container border-b border-border flex justify-between items-center text-xs shrink-0 flex-wrap gap-2">
               <div className="flex gap-4 text-on-surface-variant font-semibold flex-wrap">
                 <div className="flex items-center gap-1.5">
                   <span className="w-3.5 h-3.5 bg-emerald-500 rounded shadow-sm"></span> Mapped
@@ -401,22 +401,22 @@ export default function IEC104Analysis() {
                   <span className="w-3.5 h-3.5 bg-critical rounded shadow-sm animate-pulse"></span> Collision ({rangeStats.collisionsCount} addresses)
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="w-3.5 h-3.5 bg-slate-200 rounded shadow-sm"></span> Empty
+                  <span className="w-3.5 h-3.5 bg-surface-container-high border border-border rounded shadow-sm"></span> Empty
                 </div>
               </div>
-              <div className="text-[10px] font-bold font-mono text-slate-500">
+              <div className="text-[10px] font-bold font-mono text-on-surface-variant">
                 Total grid cells: {fullGridSlots.length}
               </div>
             </div>
 
             {/* Modal Grid Scrollable Body */}
-            <div className="flex-1 p-6 overflow-y-auto bg-slate-50/50">
+            <div className="flex-1 p-6 overflow-y-auto bg-surface">
               <div 
                 className="grid gap-2"
                 style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(65px, 1fr))' }}
               >
                 {fullGridSlots.map((slot) => {
-                  let color = 'bg-slate-200 text-slate-500 hover:bg-slate-300';
+                  let color = 'bg-surface-container-high text-on-surface-variant hover:bg-surface-container-high/80';
                   let border = 'border-transparent';
                   if (slot.status === 'mapped') {
                     if (slot.signals.length > 1) {
@@ -442,7 +442,7 @@ export default function IEC104Analysis() {
                     >
                       <span>{slot.address}</span>
                       {slot.signals.length > 1 && (
-                        <span className="text-[8px] bg-white text-critical rounded px-1 font-sans mt-0.5 font-extrabold uppercase scale-90">
+                        <span className="text-[8px] bg-surface-container-lowest text-critical rounded px-1 font-sans mt-0.5 font-extrabold uppercase scale-90">
                           ERR
                         </span>
                       )}
@@ -453,7 +453,7 @@ export default function IEC104Analysis() {
             </div>
             
             {/* Modal Footer */}
-            <div className="px-6 py-4 bg-white border-t border-border flex justify-end shrink-0">
+            <div className="px-6 py-4 bg-surface-container-lowest border-t border-border flex justify-end shrink-0">
               <button
                 onClick={() => setIsFullGridOpen(false)}
                 className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors cursor-pointer"

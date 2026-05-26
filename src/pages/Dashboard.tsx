@@ -242,7 +242,7 @@ export default function Dashboard() {
               placeholder="Search signals..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9 pr-4 py-2 text-xs w-[260px] bg-white border border-border rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-sm"
+              className="pl-9 pr-4 py-2 text-xs w-[260px] bg-surface-container-lowest text-on-surface border border-border rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-sm"
             />
           </div>
         </div>
@@ -340,7 +340,7 @@ export default function Dashboard() {
               activeAlerts.map((alert) => (
                 <div
                   key={alert.id}
-                  className="p-3 rounded-lg border border-border-light bg-slate-50/50 hover:bg-slate-50 flex items-start justify-between gap-3 text-xs"
+                  className="p-3 rounded-lg border border-border bg-surface-container hover:bg-surface-container-high flex items-start justify-between gap-3 text-xs"
                 >
                   <div className="space-y-1 flex-1">
                     <div className="flex items-center gap-2">
@@ -366,7 +366,7 @@ export default function Dashboard() {
                   </div>
                   <button
                     onClick={() => acknowledgeAlert(alert.id)}
-                    className="p-1 rounded bg-white hover:bg-emerald-50 text-on-surface-variant hover:text-success border border-border transition-colors self-center"
+                    className="p-1 rounded bg-surface-container-lowest hover:bg-success/10 text-on-surface-variant hover:text-success border border-border transition-colors self-center"
                     title="Acknowledge alert"
                   >
                     <Check size={14} />
@@ -403,9 +403,9 @@ export default function Dashboard() {
       {/* Dynamic Telemetry State Details Modal */}
       {selectedStateDetails && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl border border-border flex flex-col max-h-[80vh] overflow-hidden animate-scale-in">
+          <div className="bg-surface-container-lowest rounded-2xl shadow-2xl w-full max-w-2xl border border-border flex flex-col max-h-[80vh] overflow-hidden animate-scale-in">
             {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-slate-50">
+            <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-surface-container">
               <div className="flex items-center gap-2.5">
                 <h3 className="text-base font-bold text-on-surface">
                   State Analysis: <span className="font-mono text-slate-800">{selectedStateDetails.stateName}</span>
@@ -430,14 +430,14 @@ export default function Dashboard() {
             {/* Modal Body */}
             <div className="p-6 flex-1 overflow-y-auto space-y-5">
               {/* High level metrics */}
-              <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-border-light">
+              <div className="grid grid-cols-2 gap-4 bg-surface-container p-4 rounded-xl border border-border">
                 <div>
                   <span className="text-[10px] text-on-surface-variant uppercase tracking-wider font-bold">Signal Count</span>
-                  <p className="text-2xl font-bold font-mono text-slate-900 mt-1">{selectedStateDetails.count}</p>
+                  <p className="text-2xl font-bold font-mono text-on-surface mt-1">{selectedStateDetails.count}</p>
                 </div>
                 <div>
                   <span className="text-[10px] text-on-surface-variant uppercase tracking-wider font-bold">Proportion of Substation</span>
-                  <p className="text-2xl font-bold font-mono text-slate-900 mt-1">
+                  <p className="text-2xl font-bold font-mono text-on-surface mt-1">
                     {signals.length > 0 ? Math.round((selectedStateDetails.count / signals.length) * 100) : 0}%
                   </p>
                 </div>
@@ -449,7 +449,7 @@ export default function Dashboard() {
                 <div className="border border-border rounded-xl overflow-hidden shadow-sm">
                   <div className="max-h-[350px] overflow-y-auto">
                     <table className="w-full text-left text-xs border-collapse">
-                      <thead className="bg-slate-100 text-on-surface-variant font-bold border-b border-border sticky top-0">
+                      <thead className="bg-surface-container text-on-surface-variant font-bold border-b border-border sticky top-0">
                         <tr>
                           <th className="p-3">SL</th>
                           <th className="p-3">Feeder Name</th>
@@ -466,13 +466,13 @@ export default function Dashboard() {
                           </tr>
                         ) : (
                           selectedStateDetails.signals.map((sig) => (
-                            <tr key={sig.id} className="hover:bg-slate-50 transition-colors">
-                              <td className="p-3 font-mono text-slate-500">{sig.slNo}</td>
+                            <tr key={sig.id} className="hover:bg-surface-container transition-colors">
+                              <td className="p-3 font-mono text-on-surface-variant">{sig.slNo}</td>
                               <td className="p-3 font-semibold text-on-surface">{sig.feederName}</td>
                               <td className="p-3 text-on-surface-variant">{sig.description}</td>
                               <td className="p-3 text-center font-mono">
                                 {sig.iec104Address ? (
-                                  <span className="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded text-[10px]">
+                                  <span className="bg-surface-container text-on-surface px-1.5 py-0.5 rounded text-[10px]">
                                     {sig.iec104Address}
                                   </span>
                                 ) : (
@@ -490,7 +490,7 @@ export default function Dashboard() {
             </div>
 
             {/* Modal Footer */}
-            <div className="px-6 py-3 border-t border-border bg-slate-50 flex justify-end">
+            <div className="px-6 py-3 border-t border-border bg-surface-container flex justify-end">
               <button
                 onClick={() => setSelectedStateDetails(null)}
                 className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold shadow-sm transition-all cursor-pointer"
