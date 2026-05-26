@@ -268,9 +268,12 @@ export default function IEC104Analysis() {
                 </p>
               </div>
               {/* Visual Legend */}
-              <div className="flex gap-3 text-[10px] font-semibold label-caps text-on-surface-variant">
+              <div className="flex gap-3 text-[10px] font-semibold label-caps text-on-surface-variant flex-wrap justify-end">
                 <div className="flex items-center gap-1">
                   <span className="w-2.5 h-2.5 bg-emerald-500 rounded"></span> Mapped
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="w-2.5 h-2.5 bg-critical-light border border-critical/30 rounded"></span> Overlap
                 </div>
                 <div className="flex items-center gap-1">
                   <span className="w-2.5 h-2.5 bg-critical rounded"></span> Collision
@@ -286,7 +289,12 @@ export default function IEC104Analysis() {
                 let color = 'bg-slate-200 text-slate-500 hover:bg-slate-300';
                 let border = 'border-transparent';
                 if (slot.status === 'mapped') {
-                  color = 'bg-emerald-500 text-white hover:bg-emerald-600';
+                  if (slot.signals.length > 1) {
+                    color = 'bg-critical-light text-critical hover:bg-critical-light/85';
+                    border = 'border-critical/30';
+                  } else {
+                    color = 'bg-emerald-500 text-white hover:bg-emerald-600';
+                  }
                 } else if (slot.status === 'collision') {
                   color = 'bg-critical text-white hover:bg-critical/90 animate-pulse';
                   border = 'border-red-400';
@@ -381,10 +389,13 @@ export default function IEC104Analysis() {
             </div>
             
             {/* Modal Legend */}
-            <div className="px-6 py-3 bg-slate-50 border-b border-border-light flex justify-between items-center text-xs shrink-0">
-              <div className="flex gap-4 text-on-surface-variant font-semibold">
+            <div className="px-6 py-3 bg-slate-50 border-b border-border-light flex justify-between items-center text-xs shrink-0 flex-wrap gap-2">
+              <div className="flex gap-4 text-on-surface-variant font-semibold flex-wrap">
                 <div className="flex items-center gap-1.5">
-                  <span className="w-3.5 h-3.5 bg-emerald-500 rounded shadow-sm"></span> Mapped ({rangeStats.totalMapped - rangeStats.collisionsCount} unique)
+                  <span className="w-3.5 h-3.5 bg-emerald-500 rounded shadow-sm"></span> Mapped
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3.5 h-3.5 bg-critical-light border border-critical/30 rounded shadow-sm"></span> Overlap (Non-colliding duplicate)
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="w-3.5 h-3.5 bg-critical rounded shadow-sm animate-pulse"></span> Collision ({rangeStats.collisionsCount} addresses)
@@ -408,7 +419,12 @@ export default function IEC104Analysis() {
                   let color = 'bg-slate-200 text-slate-500 hover:bg-slate-300';
                   let border = 'border-transparent';
                   if (slot.status === 'mapped') {
-                    color = 'bg-emerald-500 text-white hover:bg-emerald-600';
+                    if (slot.signals.length > 1) {
+                      color = 'bg-critical-light text-critical hover:bg-critical-light/85';
+                      border = 'border-critical/30';
+                    } else {
+                      color = 'bg-emerald-500 text-white hover:bg-emerald-600';
+                    }
                   } else if (slot.status === 'collision') {
                     color = 'bg-critical text-white hover:bg-critical/90 animate-pulse';
                     border = 'border-red-400';
