@@ -60,7 +60,11 @@ export default function Dashboard() {
     const unknown = signals.filter((s) => s.state === 'UNKNOWN').length;
 
     return {
-      tooltip: { trigger: 'item' as const, formatter: '{b}: {c} ({d}%)' },
+      tooltip: { 
+        trigger: 'item' as const, 
+        formatter: '{b}: {c} ({d}%)',
+        confine: true
+      },
       legend: { 
         type: 'scroll' as const,
         bottom: '0%', 
@@ -104,7 +108,11 @@ export default function Dashboard() {
     const counts = types.map((t) => signals.filter((s) => s.type === t).length);
 
     return {
-      tooltip: { trigger: 'axis' as const, axisPointer: { type: 'shadow' as const } },
+      tooltip: { 
+        trigger: 'axis' as const, 
+        axisPointer: { type: 'shadow' as const },
+        confine: true
+      },
       grid: { left: '3%', right: '4%', bottom: '8%', top: '8%', containLabel: true },
       xAxis: {
         type: 'category' as const,
