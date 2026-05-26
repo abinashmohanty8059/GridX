@@ -348,7 +348,8 @@ export default function Dashboard() {
             paginationPageSize={10}
             paginationPageSizeSelector={[10, 20, 50]}
             animateRows={true}
-            rowSelection="single"
+            rowSelection={{ mode: 'singleRow' }}
+            theme="legacy"
           />
         </div>
       </div>

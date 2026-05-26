@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import type { Signal, Alert, ValidationIssue } from '../types/signal';
+import type { Signal, Alert, ValidationIssue, AppSettings } from '../types/signal';
 
 interface GridContextType {
   signals: Signal[];
@@ -12,6 +12,7 @@ interface GridContextType {
   loadExcel: (path: string) => Promise<void>;
   isLoading: boolean;
   triggerUpload: () => Promise<void>;
+  settings: AppSettings;
 }
 
 const GridContext = createContext<GridContextType | undefined>(undefined);
@@ -22,6 +23,18 @@ export function GridProvider({ children }: { children: ReactNode }) {
   const [validationIssues, setValidationIssues] = useState<ValidationIssue[]>([]);
   const [fileName, setFileName] = useState<string>('No file loaded');
   const [isLoading, setIsLoading] = useState(false);
+  const [settings, setSettings] = useState<AppSettings>({
+    exportFolder: '',
+    enableDuplicateCheck: true,
+    enableMissingMappingCheck: true,
+    enableInvalidStatusCheck: true,
+    enableEmptyFieldCheck: true,
+    enableRtuFailureDetection: true,
+    iec104RangeStart: 1000,
+    iec104RangeEnd: 4999,
+    alertSoundEnabled: true,
+    autoPdfExport: false,
+  });
 
   const acknowledgeAlert = (id: string) => {
     setAlerts(alerts.map(a => a.id === id ? { ...a, acknowledged: true } : a));
@@ -74,7 +87,7 @@ export function GridProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <GridContext.Provider value={{ signals, alerts, validationIssues, acknowledgeAlert, acknowledgeAllAlerts, fileName, loadExcel, isLoading, triggerUpload }}>
+    <GridContext.Provider value={{ signals, alerts, validationIssues, acknowledgeAlert, acknowledgeAllAlerts, fileName, loadExcel, isLoading, triggerUpload, settings }}>
       {children}
     </GridContext.Provider>
   );
