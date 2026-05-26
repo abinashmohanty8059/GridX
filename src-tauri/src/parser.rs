@@ -43,11 +43,34 @@ pub fn process_excel(path: &str) -> Result<ProcessedData, String> {
     let iec104_idx = get_col_index(&["iec104 address", "iec104 addr", "iec104", "address"]);
     let remarks_idx = get_col_index(&["remarks", "remark"]);
 
+    // Scan remarks column to see if we should trust it for validation
+    let mut trust_excel_remarks = false;
+    if let Some(r_idx) = remarks_idx {
+        for row in range.rows().skip(1) {
+            if let Some(cell) = row.get(r_idx) {
+                let cell_str = match cell {
+                    DataType::String(s) => s.trim().to_lowercase(),
+                    _ => "".to_string(),
+                };
+                if cell_str.contains("duplicate") || cell_str.contains("missing") || cell_str.contains("invalid status") {
+                    trust_excel_remarks = true;
+                    break;
+                }
+            }
+        }
+    }
+
     let get_cell_string = |row: &[DataType], idx: Option<usize>| -> String {
         idx.and_then(|i| row.get(i))
            .map(|cell| match cell {
                DataType::String(s) => s.trim().to_string(),
-               DataType::Float(f) => f.to_string(),
+               DataType::Float(f) => {
+                   if (f - f.round()).abs() < 1e-9 {
+                       (*f as i64).to_string()
+                   } else {
+                       f.to_string()
+                   }
+               },
                DataType::Int(i) => i.to_string(),
                DataType::Bool(b) => b.to_string(),
                _ => "".to_string(),
@@ -105,7 +128,7 @@ pub fn process_excel(path: &str) -> Result<ProcessedData, String> {
         } else if !type_val.is_empty() && type_val != protocol_val {
             format!("{} | {}", type_val, raw_remarks)
         } else {
-            raw_remarks
+            raw_remarks.clone()
         };
         
         let id = format!("s{}", row_idx + 1);
@@ -158,10 +181,11 @@ pub fn process_excel(path: &str) -> Result<ProcessedData, String> {
             next_issue_id += 1;
         }
 
-        // Rule 2: Duplicate IEC104 address check (Critical)
-        if !iec104_address.is_empty() {
-            if let Some(existing_ids) = iec104_seen.get(&iec104_address) {
-                // Duplicate!
+        // Rule 2 & 3: Duplicate, Missing, and Status checks
+        let raw_remarks_lower = raw_remarks.to_lowercase();
+        if trust_excel_remarks {
+            // Rule 2: Duplicate IEC104 Address check (Critical)
+            if raw_remarks_lower.contains("duplicate") {
                 issues.push(ValidationIssue {
                     id: format!("i{}", next_issue_id),
                     issue_type: "duplicate_iec104".to_string(),
@@ -189,36 +213,121 @@ pub fn process_excel(path: &str) -> Result<ProcessedData, String> {
                 });
                 next_alert_id += 1;
             }
-            iec104_seen.entry(iec104_address.clone()).or_insert_with(Vec::new).push(id.clone());
-        }
+            
+            // Rule 2.5: Missing IEC104 check (Critical)
+            if raw_remarks_lower.contains("missing") {
+                issues.push(ValidationIssue {
+                    id: format!("i{}", next_issue_id),
+                    issue_type: "missing_mapping".to_string(),
+                    severity: "critical".to_string(),
+                    signal_id: id.clone(),
+                    feeder_name: feeder_name.clone(),
+                    description: "IEC104 Address is missing".to_string(),
+                    field: "iec104Address".to_string(),
+                    value: "".to_string(),
+                    suggestion: "Populate valid address for telemetry mapping".to_string(),
+                });
+                next_issue_id += 1;
+            }
 
-        // Rule 3: Invalid Status Combination (Warning)
-        if status0.is_empty() && status1.is_empty() {
-            issues.push(ValidationIssue {
-                id: format!("i{}", next_issue_id),
-                issue_type: "invalid_status".to_string(),
-                severity: "warning".to_string(),
-                signal_id: id.clone(),
-                feeder_name: feeder_name.clone(),
-                description: "Both status values are blank".to_string(),
-                field: "status0/status1".to_string(),
-                value: "".to_string(),
-                suggestion: "Configure valid status mappings (e.g. Open/Close or On/Off)".to_string(),
-            });
-            next_issue_id += 1;
-        } else if status0.to_lowercase() == status1.to_lowercase() {
-            issues.push(ValidationIssue {
-                id: format!("i{}", next_issue_id),
-                issue_type: "invalid_status".to_string(),
-                severity: "warning".to_string(),
-                signal_id: id.clone(),
-                feeder_name: feeder_name.clone(),
-                description: "Status 0 and Status 1 mappings are identical".to_string(),
-                field: "status0/status1".to_string(),
-                value: status0.clone(),
-                suggestion: "Provide distinct status descriptions for open/close configurations".to_string(),
-            });
-            next_issue_id += 1;
+            // Rule 3: Invalid Status Combination (Warning)
+            if raw_remarks_lower.contains("invalid status") {
+                issues.push(ValidationIssue {
+                    id: format!("i{}", next_issue_id),
+                    issue_type: "invalid_status".to_string(),
+                    severity: "warning".to_string(),
+                    signal_id: id.clone(),
+                    feeder_name: feeder_name.clone(),
+                    description: "Status 0 and Status 1 mappings are identical".to_string(),
+                    field: "status0/status1".to_string(),
+                    value: status0.clone(),
+                    suggestion: "Provide distinct status descriptions for open/close configurations".to_string(),
+                });
+                next_issue_id += 1;
+            }
+
+            if !iec104_address.is_empty() {
+                iec104_seen.entry(iec104_address.clone()).or_insert_with(Vec::new).push(id.clone());
+            }
+        } else {
+            // Rule 2: Duplicate IEC104 address check (Critical)
+            if !iec104_address.is_empty() {
+                if iec104_seen.contains_key(&iec104_address) {
+                    // Duplicate!
+                    issues.push(ValidationIssue {
+                        id: format!("i{}", next_issue_id),
+                        issue_type: "duplicate_iec104".to_string(),
+                        severity: "critical".to_string(),
+                        signal_id: id.clone(),
+                        feeder_name: feeder_name.clone(),
+                        description: format!("IEC104 Address {} is already mapped", iec104_address),
+                        field: "iec104Address".to_string(),
+                        value: iec104_address.clone(),
+                        suggestion: "Assign a unique IEC104 telemetry address".to_string(),
+                    });
+                    next_issue_id += 1;
+                    
+                    // Add alert for duplication
+                    alerts.push(Alert {
+                        id: format!("a{}", next_alert_id),
+                        severity: "critical".to_string(),
+                        title: "Duplicate IEC104 Address".to_string(),
+                        message: format!("Duplicate address conflict detected for address: {}", iec104_address),
+                        timestamp: Utc::now().to_rfc3339(),
+                        signal_name: description.clone(),
+                        feeder_name: feeder_name.clone(),
+                        transition: "N/A".to_string(),
+                        acknowledged: false,
+                    });
+                    next_alert_id += 1;
+                }
+                iec104_seen.entry(iec104_address.clone()).or_insert_with(Vec::new).push(id.clone());
+            }
+
+            // Rule 2.5: Dynamic Missing IEC104 check (Critical)
+            if iec104_address.is_empty() {
+                issues.push(ValidationIssue {
+                    id: format!("i{}", next_issue_id),
+                    issue_type: "missing_mapping".to_string(),
+                    severity: "critical".to_string(),
+                    signal_id: id.clone(),
+                    feeder_name: feeder_name.clone(),
+                    description: "IEC104 Address is missing".to_string(),
+                    field: "iec104Address".to_string(),
+                    value: "".to_string(),
+                    suggestion: "Populate valid address for telemetry mapping".to_string(),
+                });
+                next_issue_id += 1;
+            }
+
+            // Rule 3: Invalid Status Combination (Warning)
+            if status0.is_empty() && status1.is_empty() {
+                issues.push(ValidationIssue {
+                    id: format!("i{}", next_issue_id),
+                    issue_type: "invalid_status".to_string(),
+                    severity: "warning".to_string(),
+                    signal_id: id.clone(),
+                    feeder_name: feeder_name.clone(),
+                    description: "Both status values are blank".to_string(),
+                    field: "status0/status1".to_string(),
+                    value: "".to_string(),
+                    suggestion: "Configure valid status mappings (e.g. Open/Close or On/Off)".to_string(),
+                });
+                next_issue_id += 1;
+            } else if status0.to_lowercase() == status1.to_lowercase() {
+                issues.push(ValidationIssue {
+                    id: format!("i{}", next_issue_id),
+                    issue_type: "invalid_status".to_string(),
+                    severity: "warning".to_string(),
+                    signal_id: id.clone(),
+                    feeder_name: feeder_name.clone(),
+                    description: "Status 0 and Status 1 mappings are identical".to_string(),
+                    field: "status0/status1".to_string(),
+                    value: status0.clone(),
+                    suggestion: "Provide distinct status descriptions for open/close configurations".to_string(),
+                });
+                next_issue_id += 1;
+            }
         }
 
         // Rule 4: Invalid Protocol check (Warning)
@@ -255,7 +364,7 @@ pub fn process_excel(path: &str) -> Result<ProcessedData, String> {
         }
 
         // Rule 6: IEC104 Range check (Critical)
-        if !iec104_address.is_empty() {
+        if !trust_excel_remarks && !iec104_address.is_empty() {
             if let Ok(addr_num) = iec104_address.parse::<i32>() {
                 if addr_num < 1000 || addr_num > 4999 {
                     issues.push(ValidationIssue {

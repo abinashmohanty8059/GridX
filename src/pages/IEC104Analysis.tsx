@@ -11,8 +11,9 @@ import {
 } from 'lucide-react';
 
 export default function IEC104Analysis() {
-  const { signals, settings } = useGrid();
+  const { signals, validationIssues, settings } = useGrid();
   const [addressSearch, setAddressSearch] = useState('');
+  const [isFullGridOpen, setIsFullGridOpen] = useState(false);
 
   // 2. Extrapolate all used addresses and their mappings
   const addressMappings = useMemo(() => {
@@ -27,15 +28,27 @@ export default function IEC104Analysis() {
       }
     });
 
-    // Mark collisions
+    // Mark collisions based on validation issues from the backend
+    const duplicateAddresses = new Set(
+      (validationIssues || [])
+        .filter((issue) => issue.type === 'duplicate_iec104')
+        .map((issue) => issue.value)
+    );
+
     Object.keys(mappings).forEach((addr) => {
-      if (mappings[addr].signals.length > 1) {
-        mappings[addr].isCollision = true;
+      if (duplicateAddresses.size > 0) {
+        if (duplicateAddresses.has(addr)) {
+          mappings[addr].isCollision = true;
+        }
+      } else {
+        if (mappings[addr].signals.length > 1) {
+          mappings[addr].isCollision = true;
+        }
       }
     });
 
     return mappings;
-  }, [signals]);
+  }, [signals, validationIssues]);
 
   // 3. Address Range statistics
   const rangeStats = useMemo(() => {
@@ -56,6 +69,32 @@ export default function IEC104Analysis() {
     // Show 60 slots starting from base address to visualize
     for (let i = 0; i < 60; i++) {
       const addr = (base + i).toString();
+      const mapping = addressMappings[addr];
+      slots.push({
+        address: addr,
+        status: mapping
+          ? mapping.isCollision
+            ? 'collision'
+            : 'mapped'
+          : 'empty',
+        signals: mapping?.signals || [],
+      });
+    }
+    return slots;
+  }, [addressMappings, rangeStats]);
+
+  // 4.5 Generate all slots from minAddress to maxAddress for the full grid modal
+  const fullGridSlots = useMemo(() => {
+    const slots = [];
+    const start = rangeStats.minAddr;
+    const end = rangeStats.maxAddr;
+    
+    // Safety guard to avoid rendering too many elements if min/max range is corrupted
+    const maxAllowedSlots = 2000;
+    const limit = Math.min(end, start + maxAllowedSlots - 1);
+    
+    for (let addrVal = start; addrVal <= limit; addrVal++) {
+      const addr = addrVal.toString();
       const mapping = addressMappings[addr];
       slots.push({
         address: addr,
@@ -212,60 +251,67 @@ export default function IEC104Analysis() {
 
         {/* Visual Registry Map */}
         <div className="lg:col-span-2 glass-card p-5 bg-surface-container-lowest border border-border rounded-xl flex flex-col space-y-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <h3 className="text-sm font-bold text-on-surface tracking-tight flex items-center gap-1.5">
-                <Zap size={16} className="text-primary" />
-                Telemetry Registry Space
-              </h3>
-              <p className="text-xs text-on-surface-variant mt-0.5">
-                Visual block representing slots around address {Math.floor(rangeStats.minAddr / 10) * 10}
-              </p>
-            </div>
-            {/* Visual Legend */}
-            <div className="flex gap-3 text-[10px] font-semibold label-caps text-on-surface-variant">
-              <div className="flex items-center gap-1">
-                <span className="w-2.5 h-2.5 bg-emerald-500 rounded"></span> Mapped
+          <div 
+            onClick={() => setIsFullGridOpen(true)}
+            className="cursor-pointer hover:bg-slate-50/50 p-3 -m-3 rounded-xl transition-all group relative border border-transparent hover:border-border/30 flex flex-col space-y-3"
+            title="Click to view full addressing grid"
+          >
+            <div className="flex justify-between items-center w-full">
+              <div>
+                <h3 className="text-sm font-bold text-on-surface tracking-tight flex items-center gap-1.5 group-hover:text-primary transition-colors">
+                  <Zap size={16} className="text-primary animate-pulse" />
+                  Telemetry Registry Space
+                </h3>
+                <p className="text-xs text-on-surface-variant mt-0.5 flex items-center gap-1 flex-wrap">
+                  <span>Visual block representing slots around address {Math.floor(rangeStats.minAddr / 10) * 10}</span>
+                  <span className="text-[9px] bg-primary/10 text-primary px-1.5 py-0.2 rounded font-bold uppercase tracking-wider ml-1 group-hover:bg-primary group-hover:text-white transition-all">Click to expand</span>
+                </p>
               </div>
-              <div className="flex items-center gap-1">
-                <span className="w-2.5 h-2.5 bg-critical rounded"></span> Collision
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="w-2.5 h-2.5 bg-slate-200 rounded"></span> Empty
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-5 md:grid-cols-10 gap-2 p-2 border border-border-light rounded-lg bg-slate-50">
-            {visualSlots.map((slot) => {
-              let color = 'bg-slate-200 text-slate-500 hover:bg-slate-300';
-              let border = 'border-transparent';
-              if (slot.status === 'mapped') {
-                color = 'bg-emerald-500 text-white hover:bg-emerald-600';
-              } else if (slot.status === 'collision') {
-                color = 'bg-critical text-white hover:bg-critical/90 animate-pulse';
-                border = 'border-red-400';
-              }
-
-              return (
-                <div
-                  key={slot.address}
-                  title={`Address: ${slot.address}\n${
-                    slot.signals.length > 0
-                      ? slot.signals.map((s) => `${s.feederName}: ${s.description}`).join('\n')
-                      : 'Unmapped'
-                  }`}
-                  className={`h-11 flex flex-col justify-center items-center rounded text-[11px] font-semibold cursor-pointer border ${border} ${color} transition-all font-mono shadow-sm`}
-                >
-                  <span>{slot.address}</span>
-                  {slot.signals.length > 1 && (
-                    <span className="text-[8px] bg-white text-critical rounded px-0.5 font-sans mt-0.5 font-bold">
-                      ERR
-                    </span>
-                  )}
+              {/* Visual Legend */}
+              <div className="flex gap-3 text-[10px] font-semibold label-caps text-on-surface-variant">
+                <div className="flex items-center gap-1">
+                  <span className="w-2.5 h-2.5 bg-emerald-500 rounded"></span> Mapped
                 </div>
-              );
-            })}
+                <div className="flex items-center gap-1">
+                  <span className="w-2.5 h-2.5 bg-critical rounded"></span> Collision
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="w-2.5 h-2.5 bg-slate-200 rounded"></span> Empty
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-5 md:grid-cols-10 gap-2 p-2 border border-border-light rounded-lg bg-slate-50 w-full">
+              {visualSlots.map((slot) => {
+                let color = 'bg-slate-200 text-slate-500 hover:bg-slate-300';
+                let border = 'border-transparent';
+                if (slot.status === 'mapped') {
+                  color = 'bg-emerald-500 text-white hover:bg-emerald-600';
+                } else if (slot.status === 'collision') {
+                  color = 'bg-critical text-white hover:bg-critical/90 animate-pulse';
+                  border = 'border-red-400';
+                }
+
+                return (
+                  <div
+                    key={slot.address}
+                    title={`Address: ${slot.address}\n${
+                      slot.signals.length > 0
+                        ? slot.signals.map((s) => `${s.feederName}: ${s.description}`).join('\n')
+                        : 'Unmapped'
+                    }`}
+                    className={`h-11 flex flex-col justify-center items-center rounded text-[11px] font-semibold cursor-pointer border ${border} ${color} transition-all font-mono shadow-sm`}
+                  >
+                    <span>{slot.address}</span>
+                    {slot.signals.length > 1 && (
+                      <span className="text-[8px] bg-white text-critical rounded px-0.5 font-sans mt-0.5 font-bold">
+                        ERR
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           {/* Collisions Report Panel */}
@@ -306,6 +352,104 @@ export default function IEC104Analysis() {
           </div>
         </div>
       </div>
+
+      {/* Full Grid Modal */}
+      {isFullGridOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in p-6">
+          <div className="bg-surface-container-lowest border border-border rounded-2xl w-full max-w-5xl h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-scale-up">
+            
+            {/* Modal Header */}
+            <div className="px-6 py-4 bg-white border-b border-border flex justify-between items-center shrink-0">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-bold text-on-surface tracking-tight">Full Telemetry Address Registry</h3>
+                  <span className="bg-slate-100 text-slate-700 font-mono text-[10px] font-bold px-2 py-0.5 rounded-full border border-border/30">
+                    Range: {rangeStats.minAddr} - {rangeStats.maxAddr}
+                  </span>
+                </div>
+                <p className="text-xs text-on-surface-variant mt-0.5">
+                  Complete addressing grid representing all telemetry registers from the lowest mapped address to the highest.
+                </p>
+              </div>
+              
+              <button
+                onClick={() => setIsFullGridOpen(false)}
+                className="p-1.5 hover:bg-slate-100 rounded-lg text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+              </button>
+            </div>
+            
+            {/* Modal Legend */}
+            <div className="px-6 py-3 bg-slate-50 border-b border-border-light flex justify-between items-center text-xs shrink-0">
+              <div className="flex gap-4 text-on-surface-variant font-semibold">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3.5 h-3.5 bg-emerald-500 rounded shadow-sm"></span> Mapped ({rangeStats.totalMapped - rangeStats.collisionsCount} unique)
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3.5 h-3.5 bg-critical rounded shadow-sm animate-pulse"></span> Collision ({rangeStats.collisionsCount} addresses)
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3.5 h-3.5 bg-slate-200 rounded shadow-sm"></span> Empty
+                </div>
+              </div>
+              <div className="text-[10px] font-bold font-mono text-slate-500">
+                Total grid cells: {fullGridSlots.length}
+              </div>
+            </div>
+
+            {/* Modal Grid Scrollable Body */}
+            <div className="flex-1 p-6 overflow-y-auto bg-slate-50/50">
+              <div 
+                className="grid gap-2"
+                style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(65px, 1fr))' }}
+              >
+                {fullGridSlots.map((slot) => {
+                  let color = 'bg-slate-200 text-slate-500 hover:bg-slate-300';
+                  let border = 'border-transparent';
+                  if (slot.status === 'mapped') {
+                    color = 'bg-emerald-500 text-white hover:bg-emerald-600';
+                  } else if (slot.status === 'collision') {
+                    color = 'bg-critical text-white hover:bg-critical/90 animate-pulse';
+                    border = 'border-red-400';
+                  }
+
+                  return (
+                    <div
+                      key={slot.address}
+                      title={`Address: ${slot.address}\n${
+                        slot.signals.length > 0
+                          ? slot.signals.map((s) => `${s.feederName}: ${s.description}`).join('\n')
+                          : 'Unmapped'
+                      }`}
+                      className={`h-12 flex flex-col justify-center items-center rounded-lg text-[11px] font-bold cursor-pointer border ${border} ${color} transition-all font-mono shadow-sm hover:scale-[1.03]`}
+                    >
+                      <span>{slot.address}</span>
+                      {slot.signals.length > 1 && (
+                        <span className="text-[8px] bg-white text-critical rounded px-1 font-sans mt-0.5 font-extrabold uppercase scale-90">
+                          ERR
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            
+            {/* Modal Footer */}
+            <div className="px-6 py-4 bg-white border-t border-border flex justify-end shrink-0">
+              <button
+                onClick={() => setIsFullGridOpen(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors cursor-pointer"
+              >
+                Close View
+              </button>
+            </div>
+            
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
