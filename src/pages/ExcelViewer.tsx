@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useGrid } from '../context/GridContext';
 import { AgGridReact } from 'ag-grid-react';
 import { ColDef, ModuleRegistry } from 'ag-grid-community';

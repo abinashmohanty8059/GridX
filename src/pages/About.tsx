@@ -1,5 +1,4 @@
-import React from 'react';
-import { Info, Code, Shield, Network, Server } from 'lucide-react';
+import { Code, Shield, Network, Server } from 'lucide-react';
 
 export default function About() {
   return (

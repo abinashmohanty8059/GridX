@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { createContext, useContext, useState, ReactNode } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import type { Signal, Alert, ValidationIssue, AppSettings } from '../types/signal';
 
@@ -23,7 +23,7 @@ export function GridProvider({ children }: { children: ReactNode }) {
   const [validationIssues, setValidationIssues] = useState<ValidationIssue[]>([]);
   const [fileName, setFileName] = useState<string>('No file loaded');
   const [isLoading, setIsLoading] = useState(false);
-  const [settings, setSettings] = useState<AppSettings>({
+  const [settings] = useState<AppSettings>({
     exportFolder: '',
     enableDuplicateCheck: true,
     enableMissingMappingCheck: true,
