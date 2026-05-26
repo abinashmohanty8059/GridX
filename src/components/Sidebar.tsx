@@ -1,4 +1,3 @@
-import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -8,10 +7,14 @@ import {
   FileSpreadsheet,
   Zap,
   Network,
-  Info
+  Info,
+  Moon,
+  Sun
 } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
 
 export default function Sidebar() {
+  const { isDarkMode, toggleDarkMode } = useTheme();
   const getNavClass = ({ isActive }: { isActive: boolean }) => 
     `sidebar-item group ${isActive ? 'sidebar-item-active' : ''}`;
 
@@ -84,7 +87,31 @@ export default function Sidebar() {
         </NavLink>
       </div>
       
-      <div className="px-6 pt-4 mt-auto border-t border-white/5">
+      <div className="px-6 pt-4 mt-auto border-t border-white/5 space-y-3">
+        {/* Quick theme toggle */}
+        <button
+          onClick={toggleDarkMode}
+          title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors cursor-pointer group"
+        >
+          <div className="flex items-center gap-2">
+            {isDarkMode
+              ? <Moon size={14} className="text-blue-300" />
+              : <Sun size={14} className="text-amber-300" />
+            }
+            <span className="text-[11px] text-white/60 font-medium group-hover:text-white/80 transition-colors">
+              {isDarkMode ? 'Dark Mode' : 'Light Mode'}
+            </span>
+          </div>
+          <div className={`relative w-8 h-4 rounded-full transition-all duration-300 ${
+            isDarkMode ? 'bg-blue-500/60' : 'bg-white/20'
+          }`}>
+            <span className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-all duration-300 ${
+              isDarkMode ? 'left-4' : 'left-0.5'
+            }`} />
+          </div>
+        </button>
+
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center border border-blue-500/30">
             <span className="text-blue-300 text-xs font-bold">OP</span>

@@ -64,6 +64,33 @@
   --radius-xl: 1.5rem;
 }
 
+/* ─── Dark Mode Overrides ─────────────────────────────────────────────────── */
+html.dark {
+  --color-surface: #0f1117;
+  --color-on-surface: #e2e8f0;
+  --color-surface-variant: #1e2532;
+  --color-on-surface-variant: #94a3b8;
+  --color-surface-container-lowest: #141920;
+  --color-surface-container-low: #181f2a;
+  --color-surface-container: #1e2737;
+  --color-surface-container-high: #243042;
+
+  --color-border: #1e293b;
+  --color-primary: #60a5fa;
+  --color-primary-container: #3b82f6;
+  --color-on-primary-container: #bfdbfe;
+
+  --color-secondary: #94a3b8;
+  --color-secondary-container: #1e2737;
+  --color-on-secondary-container: #cbd5e1;
+
+  --color-warning: #fbbf24;
+  --color-warning-light: #1c1204;
+  --color-success: #34d399;
+  --color-info: #60a5fa;
+  --color-critical-light: #3d0c0c;
+}
+
 @layer base {
   * {
     margin: 0;
@@ -79,6 +106,7 @@
     color: var(--color-on-surface);
     font-size: 14px;
     line-height: 1.5;
+    transition: background-color 0.3s ease, color 0.3s ease;
   }
 
   body {
@@ -117,12 +145,20 @@
     -webkit-backdrop-filter: blur(12px);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
-    transition: box-shadow 0.2s ease, transform 0.15s ease;
+    transition: box-shadow 0.2s ease, transform 0.15s ease, background 0.3s ease;
+  }
+
+  html.dark .glass-card {
+    background: rgba(20, 25, 32, 0.85);
   }
 
   .glass-card:hover {
     box-shadow: 0 4px 16px rgba(13, 27, 42, 0.08); /* Deep Ambient Shadow */
     transform: translateY(-1px);
+  }
+
+  html.dark .glass-card:hover {
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
   }
 
   /* Surface 2: Popovers/Elevated */
@@ -135,10 +171,19 @@
     box-shadow: 0 10px 25px rgba(13, 27, 42, 0.08);
   }
 
+  html.dark .glass-card-elevated {
+    background: rgba(20, 25, 32, 0.97);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+  }
+
   .kpi-card {
     position: relative;
     overflow: hidden;
     background: linear-gradient(180deg, #FFFFFF 0%, #F1F5F9 100%);
+  }
+
+  html.dark .kpi-card {
+    background: linear-gradient(180deg, #1a2030 0%, #141920 100%);
   }
 
   .status-led {
