@@ -18,13 +18,42 @@ import {
   Cpu,
   Search,
   Bell,
-  Check
+  Check,
+  X
 } from 'lucide-react';
 import type { Signal } from '../types/signal';
 
 export default function Dashboard() {
   const { signals, alerts, validationIssues, acknowledgeAlert, fileName, triggerUpload } = useGrid();
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedStateDetails, setSelectedStateDetails] = useState<{
+    stateName: string;
+    count: number;
+    signals: Signal[];
+  } | null>(null);
+
+  const onChartClick = (params: any) => {
+    const stateNameMap: Record<string, string> = {
+      'ON (Active Telemetry)': 'ON',
+      'OFF (Idle State)': 'OFF',
+      'OFFLINE (Comm Fail)': 'OFFLINE',
+      'UNKNOWN': 'UNKNOWN'
+    };
+
+    const stateKey = stateNameMap[params.name];
+    if (stateKey) {
+      const filtered = signals.filter(s => s.state === stateKey);
+      setSelectedStateDetails({
+        stateName: stateKey,
+        count: params.value,
+        signals: filtered
+      });
+    }
+  };
+
+  const chartEvents = {
+    'click': onChartClick
+  };
 
   // 1. KPI Counts
   const totalCount = signals.length;
@@ -272,7 +301,8 @@ export default function Dashboard() {
           subtitle="Substation active telemetry proportion"
           option={stateChartOption}
           height="220px"
-          className="lg:col-span-1"
+          className="lg:col-span-1 cursor-pointer"
+          onEvents={chartEvents}
         />
         <ChartCard
           title="Signal Protocol Type"
@@ -369,6 +399,108 @@ export default function Dashboard() {
           />
         </div>
       </div>
+
+      {/* Dynamic Telemetry State Details Modal */}
+      {selectedStateDetails && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl border border-border flex flex-col max-h-[80vh] overflow-hidden animate-scale-in">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-slate-50">
+              <div className="flex items-center gap-2.5">
+                <h3 className="text-base font-bold text-on-surface">
+                  State Analysis: <span className="font-mono text-slate-800">{selectedStateDetails.stateName}</span>
+                </h3>
+                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                  selectedStateDetails.stateName === 'ON' ? 'bg-[#E6F4EA] text-success border border-[#CEEAD6]' :
+                  selectedStateDetails.stateName === 'OFFLINE' ? 'bg-[#FCE8E6] text-critical border border-[#FAD2CF]' :
+                  selectedStateDetails.stateName === 'OFF' ? 'bg-slate-200 text-slate-700 border border-slate-300' :
+                  'bg-warning/15 text-warning border border-warning/20'
+                }`}>
+                  {selectedStateDetails.stateName}
+                </span>
+              </div>
+              <button 
+                onClick={() => setSelectedStateDetails(null)}
+                className="p-1 rounded-lg hover:bg-slate-200 text-on-surface-variant hover:text-on-surface transition-all cursor-pointer border border-transparent"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 flex-1 overflow-y-auto space-y-5">
+              {/* High level metrics */}
+              <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-border-light">
+                <div>
+                  <span className="text-[10px] text-on-surface-variant uppercase tracking-wider font-bold">Signal Count</span>
+                  <p className="text-2xl font-bold font-mono text-slate-900 mt-1">{selectedStateDetails.count}</p>
+                </div>
+                <div>
+                  <span className="text-[10px] text-on-surface-variant uppercase tracking-wider font-bold">Proportion of Substation</span>
+                  <p className="text-2xl font-bold font-mono text-slate-900 mt-1">
+                    {signals.length > 0 ? Math.round((selectedStateDetails.count / signals.length) * 100) : 0}%
+                  </p>
+                </div>
+              </div>
+
+              {/* Signals List table/view */}
+              <div>
+                <h4 className="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-2.5">Mapped Substation Signals</h4>
+                <div className="border border-border rounded-xl overflow-hidden shadow-sm">
+                  <div className="max-h-[350px] overflow-y-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead className="bg-slate-100 text-on-surface-variant font-bold border-b border-border sticky top-0">
+                        <tr>
+                          <th className="p-3">SL</th>
+                          <th className="p-3">Feeder Name</th>
+                          <th className="p-3">Signal Description</th>
+                          <th className="p-3 text-center">IEC104 Addr</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {selectedStateDetails.signals.length === 0 ? (
+                          <tr>
+                            <td colSpan={4} className="p-4 text-center text-on-surface-variant">
+                              No active signals mapped in this state.
+                            </td>
+                          </tr>
+                        ) : (
+                          selectedStateDetails.signals.map((sig) => (
+                            <tr key={sig.id} className="hover:bg-slate-50 transition-colors">
+                              <td className="p-3 font-mono text-slate-500">{sig.slNo}</td>
+                              <td className="p-3 font-semibold text-on-surface">{sig.feederName}</td>
+                              <td className="p-3 text-on-surface-variant">{sig.description}</td>
+                              <td className="p-3 text-center font-mono">
+                                {sig.iec104Address ? (
+                                  <span className="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded text-[10px]">
+                                    {sig.iec104Address}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-400">—</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-3 border-t border-border bg-slate-50 flex justify-end">
+              <button
+                onClick={() => setSelectedStateDetails(null)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold shadow-sm transition-all cursor-pointer"
+              >
+                Close Details
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

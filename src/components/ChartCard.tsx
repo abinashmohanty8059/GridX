@@ -7,9 +7,10 @@ interface ChartCardProps {
   option: any;
   height: string;
   className?: string;
+  onEvents?: Record<string, Function>;
 }
 
-export default function ChartCard({ title, subtitle, option, height, className = '' }: ChartCardProps) {
+export default function ChartCard({ title, subtitle, option, height, className = '', onEvents }: ChartCardProps) {
   return (
     <div className={`glass-card p-5 bg-surface-container-lowest border border-border rounded-xl flex flex-col ${className}`}>
       <div className="mb-4">
@@ -21,6 +22,7 @@ export default function ChartCard({ title, subtitle, option, height, className =
           option={option} 
           style={{ height: '100%', width: '100%' }}
           opts={{ renderer: 'svg' }}
+          onEvents={onEvents}
         />
       </div>
     </div>
