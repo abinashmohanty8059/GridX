@@ -7,6 +7,7 @@ interface GridContextType {
   alerts: Alert[];
   validationIssues: ValidationIssue[];
   acknowledgeAlert: (id: string) => void;
+  acknowledgeAllAlerts: () => void;
   fileName: string;
   loadExcel: (path: string) => Promise<void>;
   isLoading: boolean;
@@ -24,6 +25,10 @@ export function GridProvider({ children }: { children: ReactNode }) {
 
   const acknowledgeAlert = (id: string) => {
     setAlerts(alerts.map(a => a.id === id ? { ...a, acknowledged: true } : a));
+  };
+
+  const acknowledgeAllAlerts = () => {
+    setAlerts(alerts.map(a => ({ ...a, acknowledged: true })));
   };
 
   const loadExcel = async (path: string) => {
@@ -69,7 +74,7 @@ export function GridProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <GridContext.Provider value={{ signals, alerts, validationIssues, acknowledgeAlert, fileName, loadExcel, isLoading, triggerUpload }}>
+    <GridContext.Provider value={{ signals, alerts, validationIssues, acknowledgeAlert, acknowledgeAllAlerts, fileName, loadExcel, isLoading, triggerUpload }}>
       {children}
     </GridContext.Provider>
   );

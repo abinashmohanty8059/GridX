@@ -3,9 +3,12 @@ import { useGrid } from '../context/GridContext';
 import KPICard from '../components/KPICard';
 import ChartCard from '../components/ChartCard';
 import { AgGridReact } from 'ag-grid-react';
-import { ColDef } from 'ag-grid-community';
+import { ColDef, ModuleRegistry } from 'ag-grid-community';
+import { AllCommunityModule } from 'ag-grid-community';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-alpine.css';
+
+ModuleRegistry.registerModules([AllCommunityModule]);
 import {
   Activity,
   AlertTriangle,
