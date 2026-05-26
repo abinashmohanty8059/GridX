@@ -80,12 +80,33 @@ pub fn process_excel(path: &str) -> Result<ProcessedData, String> {
         let description = get_cell_string(row, desc_idx);
         let source = get_cell_string(row, source_idx);
         let iec61850_node = get_cell_string(row, iec61850_idx);
-        let protocol = get_cell_string(row, protocol_idx);
-        let signal_type = get_cell_string(row, type_idx);
+        let protocol_val = get_cell_string(row, protocol_idx);
+        let type_val = get_cell_string(row, type_idx);
+        
+        let signal_type = if !protocol_val.is_empty() {
+            protocol_val.clone()
+        } else {
+            type_val.clone()
+        };
+        
+        let protocol = if !protocol_val.is_empty() {
+            protocol_val.clone()
+        } else {
+            type_val.clone()
+        };
+
         let status0 = get_cell_string(row, status0_idx);
         let status1 = get_cell_string(row, status1_idx);
         let iec104_address = get_cell_string(row, iec104_idx);
-        let remarks = get_cell_string(row, remarks_idx);
+        
+        let raw_remarks = get_cell_string(row, remarks_idx);
+        let remarks = if !type_val.is_empty() && type_val != protocol_val && raw_remarks.is_empty() {
+            type_val.clone()
+        } else if !type_val.is_empty() && type_val != protocol_val {
+            format!("{} | {}", type_val, raw_remarks)
+        } else {
+            raw_remarks
+        };
         
         let id = format!("s{}", row_idx + 1);
         
