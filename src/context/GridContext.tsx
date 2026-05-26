@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import type { Signal, Alert, ValidationIssue } from '../types/signal';
 
 interface GridContextType {
@@ -7,29 +8,68 @@ interface GridContextType {
   validationIssues: ValidationIssue[];
   acknowledgeAlert: (id: string) => void;
   fileName: string;
+  loadExcel: (path: string) => Promise<void>;
+  isLoading: boolean;
+  triggerUpload: () => Promise<void>;
 }
 
 const GridContext = createContext<GridContextType | undefined>(undefined);
 
-const SAMPLE_SIGNALS: Signal[] = [
-  { id: 's1', slNo: 1, feederName: '33kV Feeder-1', description: 'CB Status', source: 'Bay Controller', iec61850Node: 'XCBR1.Pos.stVal', protocol: 'DPI', type: 'DPI', status0: 'OPEN', status1: 'CLOSE', iec104Address: '1001', remarks: 'Main CB', state: 'ON', lastUpdated: '2026-05-26T01:30:00Z' },
-  { id: 's2', slNo: 2, feederName: '33kV Feeder-1', description: 'Earth Switch', source: 'Bay Controller', iec61850Node: 'XSWI2.Pos.stVal', protocol: 'DPI', type: 'DPI', status0: 'OPEN', status1: 'CLOSE', iec104Address: '1003', remarks: '', state: 'OFF', lastUpdated: '2026-05-26T01:28:00Z' },
-  { id: 's3', slNo: 3, feederName: '33kV Feeder-2', description: 'CB Status', source: 'Bay Controller', iec61850Node: 'XCBR1.Pos.stVal', protocol: 'DPI', type: 'DPI', status0: 'OPEN', status1: 'CLOSE', iec104Address: '1006', remarks: '', state: 'ON', lastUpdated: '2026-05-26T01:30:00Z' },
-  { id: 's4', slNo: 4, feederName: '33kV Feeder-3', description: 'Isolator', source: 'Bay Controller', iec61850Node: 'XSWI1.Pos.stVal', protocol: 'DPI', type: 'DPI', status0: 'OPEN', status1: 'CLOSE', iec104Address: '1011', remarks: '', state: 'OFFLINE', lastUpdated: '2026-05-26T00:45:00Z' },
-];
-
 export function GridProvider({ children }: { children: ReactNode }) {
-  const [signals, setSignals] = useState<Signal[]>(SAMPLE_SIGNALS);
+  const [signals, setSignals] = useState<Signal[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [validationIssues, setValidationIssues] = useState<ValidationIssue[]>([]);
-  const fileName = 'Substation_Config_v2.xlsx';
+  const [fileName, setFileName] = useState<string>('No file loaded');
+  const [isLoading, setIsLoading] = useState(false);
 
   const acknowledgeAlert = (id: string) => {
     setAlerts(alerts.map(a => a.id === id ? { ...a, acknowledged: true } : a));
   };
 
+  const loadExcel = async (path: string) => {
+    try {
+      setIsLoading(true);
+      
+      // Extract filename from path
+      const name = path.split('\\').pop()?.split('/').pop() || 'Unknown File';
+      setFileName(name);
+
+      // Invoke the Rust backend!
+      const data: any = await invoke('process_excel_file', { path });
+      
+      setSignals(data.signals || []);
+      setAlerts(data.alerts || []);
+      setValidationIssues(data.issues || []);
+      
+    } catch (error) {
+      console.error("Failed to process Excel file:", error);
+      // Fallback or error handling
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const triggerUpload = async () => {
+    try {
+      const { open } = await import('@tauri-apps/plugin-dialog');
+      const selectedPath = await open({
+        multiple: false,
+        filters: [{
+          name: 'Excel Files',
+          extensions: ['xlsx', 'xls']
+        }]
+      });
+
+      if (selectedPath && typeof selectedPath === 'string') {
+        await loadExcel(selectedPath);
+      }
+    } catch (err) {
+      console.error("Failed to open file dialog", err);
+    }
+  };
+
   return (
-    <GridContext.Provider value={{ signals, alerts, validationIssues, acknowledgeAlert, fileName }}>
+    <GridContext.Provider value={{ signals, alerts, validationIssues, acknowledgeAlert, fileName, loadExcel, isLoading, triggerUpload }}>
       {children}
     </GridContext.Provider>
   );
