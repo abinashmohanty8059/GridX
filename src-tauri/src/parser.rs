@@ -117,6 +117,11 @@ pub fn process_excel(path: &str) -> Result<ProcessedData, String> {
         } else if row_idx % 7 == 0 {
             state = "OFF".to_string();
         }
+
+        // If it is an RTU or communication link status signal and it's simulated as OFF, make it OFFLINE
+        if (description.to_lowercase().contains("communication") || description.to_lowercase().contains("comm")) && state == "OFF" {
+            state = "OFFLINE".to_string();
+        }
         
         let signal_obj = Signal {
             id: id.clone(),
@@ -283,6 +288,53 @@ pub fn process_excel(path: &str) -> Result<ProcessedData, String> {
                 acknowledged: false,
             });
             next_alert_id += 1;
+        }
+
+        // Rule: RTU Failure validation and alert
+        if (description.to_lowercase().contains("communication") || description.to_lowercase().contains("rtu")) 
+            && state == "OFFLINE" 
+        {
+            issues.push(ValidationIssue {
+                id: format!("i{}", next_issue_id),
+                issue_type: "rtu_failure".to_string(),
+                severity: "critical".to_string(),
+                signal_id: id.clone(),
+                feeder_name: feeder_name.clone(),
+                description: format!("Substation RTU connection lost on feeder {}", feeder_name),
+                field: "state".to_string(),
+                value: "OFFLINE".to_string(),
+                suggestion: "Inspect physical RS485/Ethernet link and check RTU power supply".to_string(),
+            });
+            next_issue_id += 1;
+            
+            alerts.push(Alert {
+                id: format!("a{}", next_alert_id),
+                severity: "critical".to_string(),
+                title: "RTU Failure Detected".to_string(),
+                message: format!("RTU communication failure detected on feeder {}", feeder_name),
+                timestamp: Utc::now().to_rfc3339(),
+                signal_name: description.clone(),
+                feeder_name: feeder_name.clone(),
+                transition: "ON -> OFFLINE".to_string(),
+                acknowledged: false,
+            });
+            next_alert_id += 1;
+        }
+
+        // Rule: Trip Circuit Unhealthy check
+        if description.to_lowercase().contains("trip circuit healthy") && state == "OFF" {
+            issues.push(ValidationIssue {
+                id: format!("i{}", next_issue_id),
+                issue_type: "invalid_status".to_string(),
+                severity: "critical".to_string(),
+                signal_id: id.clone(),
+                feeder_name: feeder_name.clone(),
+                description: format!("Trip circuit supervisor indicates unhealthy state on feeder {}", feeder_name),
+                field: "state".to_string(),
+                value: "OFF".to_string(),
+                suggestion: "Verify breaker control fuse and check auxiliary switch wiring".to_string(),
+            });
+            next_issue_id += 1;
         }
 
         signals.push(signal_obj);
