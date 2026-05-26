@@ -135,7 +135,7 @@ export default function ExcelViewer() {
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-surface">
       {/* Excel Meta & Title Header */}
-      <div className="bg-white border-b border-border px-container py-4 flex items-center justify-between shadow-sm">
+      <div className="bg-surface-container-lowest border-b border-border px-container py-4 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-3">
           <div className="p-2.5 rounded-lg bg-emerald-100 text-emerald-700 shadow-inner flex items-center justify-center shrink-0">
             <FileSpreadsheet size={22} />
@@ -143,12 +143,12 @@ export default function ExcelViewer() {
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-base font-bold text-on-surface tracking-tight">Excel Telemetry Viewer</h2>
-              <span className="text-[10px] bg-slate-100 text-slate-600 font-bold px-2 py-0.5 rounded-full font-mono uppercase">
+              <span className="text-[10px] bg-surface-container text-on-surface-variant font-bold px-2 py-0.5 rounded-full font-mono uppercase">
                 Active Workbook
               </span>
             </div>
             <p className="text-xs text-on-surface-variant mt-0.5 flex items-center gap-1.5">
-              <span className="font-semibold text-slate-700">{fileName}</span> 
+              <span className="font-semibold text-on-surface">{fileName}</span> 
               <span>•</span>
               <span>{signals.length} total SCADA signals loaded</span>
             </p>
@@ -173,15 +173,15 @@ export default function ExcelViewer() {
       </div>
 
       {/* Spreadsheet Toolbar */}
-      <div className="bg-slate-50 border-b border-border-light px-container py-3 flex items-center justify-between gap-4">
+      <div className="bg-surface-container-low border-b border-border px-container py-3 flex items-center justify-between gap-4">
         {/* Workbook Sheets Selector tabs */}
-        <div className="flex items-center gap-1.5 p-1 bg-slate-200/50 rounded-lg">
+        <div className="flex items-center gap-1.5 p-1 bg-surface-container rounded-lg">
           <button
             onClick={() => { setActiveTab('feeders'); setGridSearch(''); }}
             className={`px-3.5 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all ${
               activeTab === 'feeders'
-                ? 'bg-white text-slate-800 shadow-sm'
-                : 'text-on-surface-variant hover:text-slate-800'
+                ? 'bg-surface-container-lowest text-on-surface shadow-sm'
+                : 'text-on-surface-variant hover:text-on-surface'
             }`}
           >
             <Database size={13} />
@@ -191,8 +191,8 @@ export default function ExcelViewer() {
             onClick={() => { setActiveTab('constants'); setGridSearch(''); }}
             className={`px-3.5 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all ${
               activeTab === 'constants'
-                ? 'bg-white text-slate-800 shadow-sm'
-                : 'text-on-surface-variant hover:text-slate-800'
+                ? 'bg-surface-container-lowest text-on-surface shadow-sm'
+                : 'text-on-surface-variant hover:text-on-surface'
             }`}
           >
             <Info size={13} />
@@ -202,8 +202,8 @@ export default function ExcelViewer() {
             onClick={() => { setActiveTab('codes'); setGridSearch(''); }}
             className={`px-3.5 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all ${
               activeTab === 'codes'
-                ? 'bg-white text-slate-800 shadow-sm'
-                : 'text-on-surface-variant hover:text-slate-800'
+                ? 'bg-surface-container-lowest text-on-surface shadow-sm'
+                : 'text-on-surface-variant hover:text-on-surface'
             }`}
           >
             <Grid size={13} />
@@ -220,13 +220,13 @@ export default function ExcelViewer() {
               placeholder="Search current sheet cells..."
               value={gridSearch}
               onChange={(e) => setGridSearch(e.target.value)}
-              className="pl-9 pr-4 py-1.8 text-xs w-[240px] bg-white border border-border rounded-lg focus:outline-none focus:border-primary shadow-sm"
+              className="pl-9 pr-4 py-1.8 text-xs w-[240px] bg-surface-container-lowest text-on-surface border border-border rounded-lg focus:outline-none focus:border-primary shadow-sm"
             />
           </div>
 
           <button
             onClick={handleExportCSV}
-            className="flex items-center gap-1.5 px-3 py-1.8 bg-white hover:bg-slate-50 border border-border text-xs font-semibold text-on-surface-variant rounded-lg shadow-sm transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.8 bg-surface-container-lowest hover:bg-surface-container border border-border text-xs font-semibold text-on-surface-variant rounded-lg shadow-sm transition-all cursor-pointer"
           >
             <Download size={14} />
             Export CSV

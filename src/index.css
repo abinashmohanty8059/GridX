@@ -299,3 +299,55 @@ html.dark {
   --ag-row-height: 42px;
   --ag-header-height: 40px;
 }
+
+/* ─── Dark Mode: AG Grid ──────────────────────────────────────────────────── */
+html.dark .ag-theme-alpine {
+  --ag-background-color: #141920;
+  --ag-header-background-color: #1a2030;
+  --ag-odd-row-background-color: #181f2a;
+  --ag-border-color: #1e293b;
+  --ag-foreground-color: #e2e8f0;
+  --ag-header-foreground-color: #94a3b8;
+  --ag-row-hover-color: rgba(96, 165, 250, 0.06);
+  --ag-selected-row-background-color: rgba(96, 165, 250, 0.1);
+  --ag-input-focus-border-color: #60a5fa;
+  --ag-chip-background-color: #1e2737;
+  --ag-range-selection-border-color: #60a5fa;
+}
+
+html.dark .ag-theme-alpine .ag-header-cell-label,
+html.dark .ag-theme-alpine .ag-cell {
+  color: #e2e8f0;
+}
+
+html.dark .ag-theme-alpine .ag-paging-panel {
+  background-color: #1a2030;
+  color: #94a3b8;
+  border-top-color: #1e293b;
+}
+
+html.dark .ag-theme-alpine .ag-paging-button {
+  color: #94a3b8;
+}
+
+html.dark .ag-theme-alpine .ag-paging-button:hover {
+  background-color: #1e2737;
+}
+
+html.dark .ag-theme-alpine input[class^='ag-'] {
+  background-color: #1e2737;
+  color: #e2e8f0;
+  border-color: #334155;
+}
+
+/* ─── Dark Mode: Severity Badges ─────────────────────────────────────────── */
+html.dark .severity-warning {
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+}
+
+html.dark .severity-info {
+  background: rgba(96, 165, 250, 0.15);
+  color: #60a5fa;
+}
+
