@@ -5,7 +5,7 @@ use models::ProcessedData;
 
 #[tauri::command]
 fn process_excel_file(path: String) -> Result<ProcessedData, String> {
-    parser::mock_process_excel(&path)
+    parser::process_excel(&path)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
