@@ -1,8 +1,10 @@
 use crate::models::{ProcessedData, Signal, ValidationIssue, DashboardMetrics, Alert};
 use std::collections::HashMap;
 use chrono::Utc;
+use log::info;
 
 pub fn mock_process_excel(path: &str) -> Result<ProcessedData, String> {
+    info!("Processing Excel file from path: {}", path);
     // In a real implementation, calamine would read the file here.
     // For now, we construct the required response based on the PRD schema.
     

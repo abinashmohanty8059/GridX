@@ -26,4 +26,5 @@ calamine = "0.22"
 chrono = "0.4"
 tauri-plugin-dialog = "2.7.1"
 tauri-plugin-log = "2"
+log = "0.4"
 
