@@ -182,9 +182,9 @@ export default function Dashboard() {
         <div className="flex items-center gap-3">
           <button 
             onClick={triggerUpload}
-            className="flex items-center gap-2 bg-primary text-white text-xs font-semibold px-4 py-2 rounded-lg shadow-sm hover:bg-primary-container transition-colors"
+            className="flex items-center gap-2 bg-primary text-white text-xs font-semibold px-4 py-2 rounded-lg shadow-sm hover:bg-primary-container transition-colors whitespace-nowrap"
           >
-            <Activity size={16} /> {/* Can use a better icon like Upload later */}
+            <Activity size={16} />
             Upload Excel Mapping
           </button>
           <div className="relative">
