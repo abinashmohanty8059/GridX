@@ -9,6 +9,7 @@ import AlertsConsole from "./pages/AlertsConsole";
 import ValidationCenter from "./pages/ValidationCenter";
 import IEC104Analysis from "./pages/IEC104Analysis";
 import ExportCenter from "./pages/ExportCenter";
+import ExcelViewer from "./pages/ExcelViewer";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import About from "./pages/About";
@@ -27,6 +28,7 @@ function App() {
               <Route path="/alerts" element={<AlertsConsole />} />
               <Route path="/validation" element={<ValidationCenter />} />
               <Route path="/iec104" element={<IEC104Analysis />} />
+              <Route path="/excel" element={<ExcelViewer />} />
               <Route path="/export" element={<ExportCenter />} />
               <Route path="/reports" element={<Reports />} />
               <Route path="/settings" element={<Settings />} />
