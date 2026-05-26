@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useGrid } from '../context/GridContext';
+import { useTheme } from '../context/ThemeContext';
 import {
   Bell,
   CheckCheck,
@@ -13,6 +14,7 @@ import type { AlertSeverity } from '../types/signal';
 
 export default function AlertsConsole() {
   const { alerts, acknowledgeAlert, acknowledgeAllAlerts } = useGrid();
+  const { isDarkMode } = useTheme();
   const [filterSeverity, setFilterSeverity] = useState<AlertSeverity | 'all'>('all');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'acknowledged'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -64,44 +66,74 @@ export default function AlertsConsole() {
         </div>
       </div>
 
-      {/* Alarm Status Grid — all 4 cards use consistent dark card style */}
+      {/* Alarm Status Grid — theme-adaptive cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="p-4 bg-slate-900 border border-slate-800 rounded-xl flex items-center justify-between text-white shadow-md">
+        {/* Total Logged Events */}
+        <div className={`p-4 rounded-xl flex items-center justify-between shadow-md border ${
+          isDarkMode
+            ? 'bg-slate-900 border-slate-800 text-white'
+            : 'bg-surface-container-lowest border-border text-on-surface'
+        }`}>
           <div className="space-y-1">
-            <span className="text-[10px] font-bold tracking-wider uppercase text-slate-400 block">Total Logged Events</span>
+            <span className={`text-[10px] font-bold tracking-wider uppercase block ${
+              isDarkMode ? 'text-slate-400' : 'text-on-surface-variant'
+            }`}>Total Logged Events</span>
             <span className="text-2xl font-bold font-mono">{stats.total}</span>
           </div>
-          <div className="p-2 rounded bg-slate-800 text-slate-400">
+          <div className={`p-2 rounded ${
+            isDarkMode ? 'bg-slate-800 text-slate-400' : 'bg-surface-container text-on-surface-variant'
+          }`}>
             <Clock size={20} />
           </div>
         </div>
 
-        <div className="p-4 bg-slate-900 border border-red-900/50 rounded-xl flex items-center justify-between text-white shadow-md">
+        {/* Active Critical Alarms */}
+        <div className={`p-4 rounded-xl flex items-center justify-between shadow-md border ${
+          isDarkMode
+            ? 'bg-slate-900 border-red-900/50 text-white'
+            : 'bg-red-50 border-red-200 text-on-surface'
+        }`}>
           <div className="space-y-1">
-            <span className="text-[10px] font-bold tracking-wider uppercase text-red-400 block">Active Critical Alarms</span>
-            <span className="text-2xl font-bold font-mono text-red-400">{stats.critical}</span>
+            <span className="text-[10px] font-bold tracking-wider uppercase text-red-500 block">Active Critical Alarms</span>
+            <span className="text-2xl font-bold font-mono text-red-500">{stats.critical}</span>
           </div>
-          <div className="p-2 rounded bg-red-950/60 text-red-400 animate-pulse">
+          <div className={`p-2 rounded animate-pulse ${
+            isDarkMode ? 'bg-red-950/60 text-red-400' : 'bg-red-100 text-red-600'
+          }`}>
             <AlertTriangle size={20} />
           </div>
         </div>
 
-        <div className="p-4 bg-slate-900 border border-amber-900/40 rounded-xl flex items-center justify-between text-white shadow-md">
+        {/* Active Warnings */}
+        <div className={`p-4 rounded-xl flex items-center justify-between shadow-md border ${
+          isDarkMode
+            ? 'bg-slate-900 border-amber-900/40 text-white'
+            : 'bg-amber-50 border-amber-200 text-on-surface'
+        }`}>
           <div className="space-y-1">
-            <span className="text-[10px] font-bold tracking-wider uppercase text-amber-400 block">Active Warnings</span>
-            <span className="text-2xl font-bold font-mono text-amber-400">{stats.warning}</span>
+            <span className="text-[10px] font-bold tracking-wider uppercase text-amber-500 block">Active Warnings</span>
+            <span className="text-2xl font-bold font-mono text-amber-500">{stats.warning}</span>
           </div>
-          <div className="p-2 rounded bg-amber-950/50 text-amber-400">
+          <div className={`p-2 rounded ${
+            isDarkMode ? 'bg-amber-950/50 text-amber-400' : 'bg-amber-100 text-amber-600'
+          }`}>
             <AlertTriangle size={20} />
           </div>
         </div>
 
-        <div className="p-4 bg-slate-900 border border-blue-900/40 rounded-xl flex items-center justify-between text-white shadow-md">
+        {/* Pending Acks */}
+        <div className={`p-4 rounded-xl flex items-center justify-between shadow-md border ${
+          isDarkMode
+            ? 'bg-slate-900 border-blue-900/40 text-white'
+            : 'bg-blue-50 border-blue-200 text-on-surface'
+        }`}>
           <div className="space-y-1">
-            <span className="text-[10px] font-bold tracking-wider uppercase text-blue-400 block">Pending Acks</span>
-            <span className="text-2xl font-bold font-mono text-blue-400">{stats.active}</span>
+            <span className="text-[10px] font-bold tracking-wider uppercase text-blue-500 block">Pending Acks</span>
+            <span className="text-2xl font-bold font-mono text-blue-500">{stats.active}</span>
           </div>
-          <div className="p-2 rounded bg-blue-950/50 text-blue-400">
+          <div className={`p-2 rounded ${
+            isDarkMode ? 'bg-blue-950/50 text-blue-400' : 'bg-blue-100 text-blue-600'
+          }`}>
             <Bell size={20} />
           </div>
         </div>
