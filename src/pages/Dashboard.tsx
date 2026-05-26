@@ -61,13 +61,21 @@ export default function Dashboard() {
 
     return {
       tooltip: { trigger: 'item' as const, formatter: '{b}: {c} ({d}%)' },
-      legend: { bottom: '0%', left: 'center', textStyle: { color: '#475569', fontSize: 11 } },
+      legend: { 
+        type: 'scroll' as const,
+        bottom: '0%', 
+        left: 'center', 
+        textStyle: { color: '#475569', fontSize: 10 },
+        pageIconSize: 10,
+        pageTextStyle: { fontSize: 9 }
+      },
       color: ['#10B981', '#64748B', '#EF4444', '#F59E0B'],
       series: [
         {
           name: 'Signal States',
           type: 'pie' as const,
-          radius: ['45%', '70%'],
+          radius: ['35%', '60%'],
+          center: ['50%', '38%'],
           avoidLabelOverlap: false,
           itemStyle: { borderRadius: 6, borderColor: '#fff', borderWidth: 2 },
           label: { show: false },
