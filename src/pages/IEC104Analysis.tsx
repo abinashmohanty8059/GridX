@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 
 export default function IEC104Analysis() {
-  const { signals, validationIssues, settings } = useGrid();
+  const { signals, validationIssues, alerts, settings } = useGrid();
   const [addressSearch, setAddressSearch] = useState('');
   const [isFullGridOpen, setIsFullGridOpen] = useState(false);
 
@@ -61,6 +61,14 @@ export default function IEC104Analysis() {
     return { minAddr, maxAddr, totalMapped, collisionsCount };
   }, [addressMappings, settings]);
 
+  const duplicateAddresses = useMemo(() => {
+    return new Set(
+      (validationIssues || [])
+        .filter((issue) => issue.type === 'duplicate_iec104')
+        .map((issue) => issue.value)
+    );
+  }, [validationIssues]);
+
   // 4. Generate representative slots (e.g. from minAddress to minAddress + 49 or settings range)
   // To avoid rendering 10,000 slots, we show the address block around mapped signals.
   const visualSlots = useMemo(() => {
@@ -70,18 +78,43 @@ export default function IEC104Analysis() {
     for (let i = 0; i < 60; i++) {
       const addr = (base + i).toString();
       const mapping = addressMappings[addr];
+
+      let status = 'empty';
+      if (mapping) {
+        // 1. RTU Failure
+        const hasRtuFailure = mapping.signals.some((s) => 
+          alerts.some((a) => a.title.includes("RTU Failure") && a.feederName === s.feederName && a.signalName === s.description)
+        );
+        // 2. Duplicate Address
+        const isDuplicate = duplicateAddresses.has(addr) || mapping.signals.length > 1;
+        // 3. Missed Mapping
+        const hasMissedMapping = mapping.signals.some((s) => 
+          validationIssues.some((vi) => vi.signalId === s.id && vi.type === 'missing_mapping')
+        );
+        // 4. Offline
+        const allOffline = mapping.signals.every((s) => s.state === 'OFFLINE');
+
+        if (hasRtuFailure) {
+          status = 'rtu_failure';
+        } else if (isDuplicate) {
+          status = 'duplicate';
+        } else if (hasMissedMapping) {
+          status = 'missed_mapping';
+        } else if (allOffline) {
+          status = 'offline';
+        } else {
+          status = 'active';
+        }
+      }
+
       slots.push({
         address: addr,
-        status: mapping
-          ? mapping.isCollision
-            ? 'collision'
-            : 'mapped'
-          : 'empty',
+        status,
         signals: mapping?.signals || [],
       });
     }
     return slots;
-  }, [addressMappings, rangeStats]);
+  }, [addressMappings, rangeStats, duplicateAddresses, validationIssues, alerts]);
 
   // 4.5 Generate all slots from minAddress to maxAddress for the full grid modal
   const fullGridSlots = useMemo(() => {
@@ -96,18 +129,85 @@ export default function IEC104Analysis() {
     for (let addrVal = start; addrVal <= limit; addrVal++) {
       const addr = addrVal.toString();
       const mapping = addressMappings[addr];
+
+      let status = 'empty';
+      if (mapping) {
+        // 1. RTU Failure
+        const hasRtuFailure = mapping.signals.some((s) => 
+          alerts.some((a) => a.title.includes("RTU Failure") && a.feederName === s.feederName && a.signalName === s.description)
+        );
+        // 2. Duplicate Address
+        const isDuplicate = duplicateAddresses.has(addr) || mapping.signals.length > 1;
+        // 3. Missed Mapping
+        const hasMissedMapping = mapping.signals.some((s) => 
+          validationIssues.some((vi) => vi.signalId === s.id && vi.type === 'missing_mapping')
+        );
+        // 4. Offline
+        const allOffline = mapping.signals.every((s) => s.state === 'OFFLINE');
+
+        if (hasRtuFailure) {
+          status = 'rtu_failure';
+        } else if (isDuplicate) {
+          status = 'duplicate';
+        } else if (hasMissedMapping) {
+          status = 'missed_mapping';
+        } else if (allOffline) {
+          status = 'offline';
+        } else {
+          status = 'active';
+        }
+      }
+
       slots.push({
         address: addr,
-        status: mapping
-          ? mapping.isCollision
-            ? 'collision'
-            : 'mapped'
-          : 'empty',
+        status,
         signals: mapping?.signals || [],
       });
     }
     return slots;
-  }, [addressMappings, rangeStats]);
+  }, [addressMappings, rangeStats, duplicateAddresses, validationIssues, alerts]);
+
+  const getSlotStyles = (status: string) => {
+    switch (status) {
+      case 'active':
+        return {
+          color: 'bg-emerald-500 text-white hover:bg-emerald-600 border-transparent',
+          label: 'Active',
+          badge: ''
+        };
+      case 'offline':
+        return {
+          color: 'bg-blue-500 text-white hover:bg-blue-600 border-transparent',
+          label: 'Offline',
+          badge: 'OFF'
+        };
+      case 'duplicate':
+        return {
+          color: 'bg-red-500 text-white hover:bg-red-600 border-red-600 shadow-red-200/50',
+          label: 'Duplicate Address',
+          badge: 'DUP'
+        };
+      case 'missed_mapping':
+        return {
+          color: 'bg-yellow-400 text-slate-900 hover:bg-yellow-500 border-transparent',
+          label: 'Missed Mapping',
+          badge: 'MISS'
+        };
+      case 'rtu_failure':
+        return {
+          color: 'bg-red-900 text-white animate-pulse hover:bg-red-950 border-red-950 font-bold',
+          label: 'RTU Failure',
+          badge: 'RTU'
+        };
+      case 'empty':
+      default:
+        return {
+          color: 'bg-surface-container-high text-on-surface-variant hover:bg-surface-container-high/80 border-transparent',
+          label: 'Empty',
+          badge: ''
+        };
+    }
+  };
 
   // 5. Check if search address is available
   const availabilityStatus = useMemo(() => {
@@ -270,50 +370,43 @@ export default function IEC104Analysis() {
               {/* Visual Legend */}
               <div className="flex gap-3 text-[10px] font-semibold label-caps text-on-surface-variant flex-wrap justify-end">
                 <div className="flex items-center gap-1">
-                  <span className="w-2.5 h-2.5 bg-emerald-500 rounded"></span> Mapped
+                  <span className="w-2.5 h-2.5 bg-emerald-500 rounded"></span> Active
                 </div>
                 <div className="flex items-center gap-1">
-                  <span className="w-2.5 h-2.5 bg-critical-light border border-critical/30 rounded"></span> Overlap
+                  <span className="w-2.5 h-2.5 bg-blue-500 rounded"></span> Offline
                 </div>
                 <div className="flex items-center gap-1">
-                  <span className="w-2.5 h-2.5 bg-critical rounded"></span> Collision
+                  <span className="w-2.5 h-2.5 bg-red-500 rounded"></span> Duplicate Address
                 </div>
                 <div className="flex items-center gap-1">
-                  <span className="w-2.5 h-2.5 bg-slate-200 rounded"></span> Empty
+                  <span className="w-2.5 h-2.5 bg-yellow-400 rounded"></span> Missed Mapping
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="w-2.5 h-2.5 bg-red-900 animate-pulse rounded"></span> RTU Failure
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="w-2.5 h-2.5 bg-surface-container-high border border-border rounded"></span> Available
                 </div>
               </div>
             </div>
 
             <div className="grid grid-cols-5 md:grid-cols-10 gap-2 p-2 border border-border rounded-lg bg-surface-container w-full">
               {visualSlots.map((slot) => {
-                let color = 'bg-surface-container-high text-on-surface-variant hover:bg-surface-container-high/80';
-                let border = 'border-transparent';
-                if (slot.status === 'mapped') {
-                  if (slot.signals.length > 1) {
-                    color = 'bg-critical-light text-critical hover:bg-critical-light/85';
-                    border = 'border-critical/30';
-                  } else {
-                    color = 'bg-emerald-500 text-white hover:bg-emerald-600';
-                  }
-                } else if (slot.status === 'collision') {
-                  color = 'bg-critical text-white hover:bg-critical/90 animate-pulse';
-                  border = 'border-red-400';
-                }
-
+                const slotStyle = getSlotStyles(slot.status);
                 return (
                   <div
                     key={slot.address}
-                    title={`Address: ${slot.address}\n${
+                    title={`Address: ${slot.address}\nStatus: ${slotStyle.label}\n${
                       slot.signals.length > 0
-                        ? slot.signals.map((s) => `${s.feederName}: ${s.description}`).join('\n')
+                        ? slot.signals.map((s) => `${s.feederName}: ${s.description} (${s.state})`).join('\n')
                         : 'Unmapped'
                     }`}
-                    className={`h-11 flex flex-col justify-center items-center rounded text-[11px] font-semibold cursor-pointer border ${border} ${color} transition-all font-mono shadow-sm`}
+                    className={`h-11 flex flex-col justify-center items-center rounded text-[11px] font-semibold cursor-pointer border ${slotStyle.color} transition-all font-mono shadow-sm`}
                   >
                     <span>{slot.address}</span>
-                    {slot.signals.length > 1 && (
-                      <span className="text-[8px] bg-surface-container-lowest text-critical rounded px-0.5 font-sans mt-0.5 font-bold">
-                        ERR
+                    {slotStyle.badge && (
+                      <span className="text-[8px] bg-surface-container-lowest text-on-surface rounded px-0.5 font-sans mt-0.5 font-bold uppercase scale-90">
+                        {slotStyle.badge}
                       </span>
                     )}
                   </div>
@@ -392,16 +485,22 @@ export default function IEC104Analysis() {
             <div className="px-6 py-3 bg-surface-container border-b border-border flex justify-between items-center text-xs shrink-0 flex-wrap gap-2">
               <div className="flex gap-4 text-on-surface-variant font-semibold flex-wrap">
                 <div className="flex items-center gap-1.5">
-                  <span className="w-3.5 h-3.5 bg-emerald-500 rounded shadow-sm"></span> Mapped
+                  <span className="w-3.5 h-3.5 bg-emerald-500 rounded shadow-sm"></span> Active
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="w-3.5 h-3.5 bg-critical-light border border-critical/30 rounded shadow-sm"></span> Overlap (Non-colliding duplicate)
+                  <span className="w-3.5 h-3.5 bg-blue-500 rounded shadow-sm"></span> Offline
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="w-3.5 h-3.5 bg-critical rounded shadow-sm animate-pulse"></span> Collision ({rangeStats.collisionsCount} addresses)
+                  <span className="w-3.5 h-3.5 bg-red-500 rounded shadow-sm"></span> Duplicate Address
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="w-3.5 h-3.5 bg-surface-container-high border border-border rounded shadow-sm"></span> Empty
+                  <span className="w-3.5 h-3.5 bg-yellow-400 rounded shadow-sm"></span> Missed Mapping
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3.5 h-3.5 bg-red-900 animate-pulse rounded shadow-sm"></span> RTU Failure
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3.5 h-3.5 bg-surface-container-high border border-border rounded shadow-sm"></span> Available
                 </div>
               </div>
               <div className="text-[10px] font-bold font-mono text-on-surface-variant">
@@ -416,34 +515,21 @@ export default function IEC104Analysis() {
                 style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(65px, 1fr))' }}
               >
                 {fullGridSlots.map((slot) => {
-                  let color = 'bg-surface-container-high text-on-surface-variant hover:bg-surface-container-high/80';
-                  let border = 'border-transparent';
-                  if (slot.status === 'mapped') {
-                    if (slot.signals.length > 1) {
-                      color = 'bg-critical-light text-critical hover:bg-critical-light/85';
-                      border = 'border-critical/30';
-                    } else {
-                      color = 'bg-emerald-500 text-white hover:bg-emerald-600';
-                    }
-                  } else if (slot.status === 'collision') {
-                    color = 'bg-critical text-white hover:bg-critical/90 animate-pulse';
-                    border = 'border-red-400';
-                  }
-
+                  const slotStyle = getSlotStyles(slot.status);
                   return (
                     <div
                       key={slot.address}
-                      title={`Address: ${slot.address}\n${
+                      title={`Address: ${slot.address}\nStatus: ${slotStyle.label}\n${
                         slot.signals.length > 0
-                          ? slot.signals.map((s) => `${s.feederName}: ${s.description}`).join('\n')
+                          ? slot.signals.map((s) => `${s.feederName}: ${s.description} (${s.state})`).join('\n')
                           : 'Unmapped'
                       }`}
-                      className={`h-12 flex flex-col justify-center items-center rounded-lg text-[11px] font-bold cursor-pointer border ${border} ${color} transition-all font-mono shadow-sm hover:scale-[1.03]`}
+                      className={`h-12 flex flex-col justify-center items-center rounded-lg text-[11px] font-bold cursor-pointer border ${slotStyle.color} transition-all font-mono shadow-sm hover:scale-[1.03]`}
                     >
                       <span>{slot.address}</span>
-                      {slot.signals.length > 1 && (
-                        <span className="text-[8px] bg-surface-container-lowest text-critical rounded px-1 font-sans mt-0.5 font-extrabold uppercase scale-90">
-                          ERR
+                      {slotStyle.badge && (
+                        <span className="text-[8px] bg-surface-container-lowest text-on-surface rounded px-1 font-sans mt-0.5 font-extrabold uppercase scale-90">
+                          {slotStyle.badge}
                         </span>
                       )}
                     </div>
