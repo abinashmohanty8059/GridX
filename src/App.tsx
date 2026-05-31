@@ -13,6 +13,7 @@ import ExcelViewer from "./pages/ExcelViewer";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import About from "./pages/About";
+import ComparisonCenter from "./pages/ComparisonCenter";
 
 import "./index.css";
 
@@ -28,6 +29,7 @@ function App() {
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/alerts" element={<AlertsConsole />} />
                 <Route path="/validation" element={<ValidationCenter />} />
+                <Route path="/comparison" element={<ComparisonCenter />} />
                 <Route path="/iec104" element={<IEC104Analysis />} />
                 <Route path="/excel" element={<ExcelViewer />} />
                 <Route path="/export" element={<ExportCenter />} />

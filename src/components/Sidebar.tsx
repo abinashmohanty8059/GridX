@@ -5,13 +5,13 @@ import {
   AlertTriangle, 
   Settings, 
   FileSpreadsheet,
-  Zap,
   Network,
   Info,
   Moon,
   Sun
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
+import logoImg from '../assets/square-image.jpg';
 
 export default function Sidebar() {
   const { isDarkMode, toggleDarkMode } = useTheme();
@@ -21,9 +21,11 @@ export default function Sidebar() {
   return (
     <div className="w-64 h-screen bg-[#0D1B2A] flex flex-col py-6 border-r border-[#1e3450] shrink-0 text-white shadow-xl z-10">
       <div className="px-6 mb-8 flex items-center gap-3">
-        <div className="bg-primary p-1.5 rounded-lg">
-          <Zap size={22} className="text-white" />
-        </div>
+        <img 
+          src={logoImg} 
+          alt="GridX Logo" 
+          className="w-9 h-9 rounded-lg object-cover border border-[#1e3450]" 
+        />
         <div>
           <h1 className="text-xl font-bold tracking-tight text-white leading-tight">GridX</h1>
           <p className="text-[10px] text-blue-300/70 font-mono tracking-wider">SCADA TELEMETRY</p>
@@ -60,6 +62,10 @@ export default function Sidebar() {
         <NavLink to="/iec104" className={getNavClass}>
           <Network size={18} className="text-indigo-400 group-hover:text-indigo-300 transition-colors" />
           <span>IEC 104 Analysis</span>
+        </NavLink>
+        <NavLink to="/comparison" className={getNavClass}>
+          <FileSpreadsheet size={18} className="text-amber-400 group-hover:text-amber-300 transition-colors" />
+          <span>Comparison Center</span>
         </NavLink>
         <NavLink to="/excel" className={getNavClass}>
           <FileSpreadsheet size={18} className="text-cyan-400 group-hover:text-cyan-300 transition-colors" />

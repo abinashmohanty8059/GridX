@@ -31,6 +31,70 @@ export default function Dashboard() {
     count: number;
     signals: Signal[];
   } | null>(null);
+  const [selectedTypeDetails, setSelectedTypeDetails] = useState<{
+    typeName: string;
+    count: number;
+    signals: Signal[];
+  } | null>(null);
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [showMissingModal, setShowMissingModal] = useState(false);
+  const [showTotalSignalsModal, setShowTotalSignalsModal] = useState(false);
+  const [showActiveSignalsModal, setShowActiveSignalsModal] = useState(false);
+  const [showOfflineSignalsModal, setShowOfflineSignalsModal] = useState(false);
+  const [showRtuFailuresModal, setShowRtuFailuresModal] = useState(false);
+
+  const activeSignalsList = useMemo(() => {
+    return signals.filter((s) => s.state === 'ON');
+  }, [signals]);
+
+  const offlineSignalsList = useMemo(() => {
+    return signals.filter((s) => s.state === 'OFFLINE');
+  }, [signals]);
+
+  const rtuFailuresList = useMemo(() => {
+    return alerts.filter((a) => a.title.includes("RTU Failure"));
+  }, [alerts]);
+
+  // Grouped Duplicate Mappings
+  const duplicateIssues = useMemo(() => {
+    return validationIssues
+      .filter((vi) => vi.type === 'duplicate_iec104')
+      .map((vi) => {
+        const sig = signals.find((s) => s.id === vi.signalId);
+        return {
+          ...vi,
+          slNo: sig?.slNo ?? '—',
+          signalDescription: sig?.description ?? '—',
+        };
+      });
+  }, [validationIssues, signals]);
+
+  const duplicateGroups = useMemo(() => {
+    const groups: Record<string, typeof duplicateIssues> = {};
+    duplicateIssues.forEach((issue) => {
+      const addr = issue.value;
+      if (!groups[addr]) {
+        groups[addr] = [];
+      }
+      groups[addr].push(issue);
+    });
+    return groups;
+  }, [duplicateIssues]);
+
+  // Missing Mappings
+  const missingIssues = useMemo(() => {
+    return validationIssues
+      .filter((vi) => vi.type === 'missing_mapping')
+      .map((vi) => {
+        const sig = signals.find((s) => s.id === vi.signalId);
+        return {
+          ...vi,
+          slNo: sig?.slNo ?? '—',
+          signalDescription: sig?.description ?? '—',
+          missingField: vi.field === 'iec104Address' ? 'IEC104 Address' : 'IEC61850 Node Path',
+        };
+      });
+  }, [validationIssues, signals]);
 
   const onChartClick = (params: any) => {
     const stateNameMap: Record<string, string> = {
@@ -55,13 +119,29 @@ export default function Dashboard() {
     'click': onChartClick
   };
 
+  const onTypeChartClick = (params: any) => {
+    const typeName = params.name;
+    if (typeName) {
+      const filtered = signals.filter((s) => s.type === typeName);
+      setSelectedTypeDetails({
+        typeName: typeName,
+        count: filtered.length,
+        signals: filtered,
+      });
+    }
+  };
+
+  const typeChartEvents = {
+    'click': onTypeChartClick
+  };
+
   // 1. KPI Counts
   const totalCount = signals.length;
   const activeCount = signals.filter((s) => s.state === 'ON').length;
   const offlineCount = signals.filter((s) => s.state === 'OFFLINE').length;
   const duplicateCount = validationIssues.filter((vi) => vi.type === 'duplicate_iec104').length;
   const missingCount = validationIssues.filter((vi) => vi.type === 'missing_mapping').length;
-  const rtuFailures = validationIssues.filter((vi) => vi.type === 'rtu_failure').length;
+  const rtuFailures = alerts.filter((a) => a.title.includes("RTU Failure")).length;
 
   // 2. Active Alert panel (unacknowledged alerts)
   const activeAlerts = useMemo(() => {
@@ -181,7 +261,7 @@ export default function Dashboard() {
           if (val === 'DPI' || val === 'SPI') badgeColor = 'bg-blue-50 text-blue-700 border border-blue-100';
           if (val === 'MEAS') badgeColor = 'bg-emerald-50 text-emerald-700 border border-emerald-100';
           if (val === 'HW') badgeColor = 'bg-amber-50 text-amber-700 border border-amber-100';
-          return `<span class="px-2 py-0.5 rounded text-[11px] font-bold ${badgeColor}">${val}</span>`;
+          return <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${badgeColor}`}>{val}</span>;
         },
       },
       {
@@ -192,8 +272,8 @@ export default function Dashboard() {
         cellClass: 'data-mono text-center',
         cellRenderer: (params: any) => {
           const addr = params.value;
-          if (!addr) return '<span class="text-critical font-semibold">MISSING</span>';
-          return `<span class="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded font-mono">${addr}</span>`;
+          if (!addr) return <span className="text-critical font-semibold">MISSING</span>;
+          return <span className="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded font-mono">{addr}</span>;
         },
       },
       { field: 'iec61850Node', headerName: 'IEC61850 Path', width: 240, sortable: true, cellClass: 'data-mono font-mono text-xs' },
@@ -205,11 +285,26 @@ export default function Dashboard() {
         cellRenderer: (params: any) => {
           const state = params.value;
           if (state === 'ON') {
-            return `<div class="flex items-center gap-1.5"><span class="status-led status-led-online"></span><span class="text-success font-medium text-xs">ON</span></div>`;
+            return (
+              <div className="flex items-center gap-1.5">
+                <span className="status-led status-led-online"></span>
+                <span className="text-success font-medium text-xs">ON</span>
+              </div>
+            );
           } else if (state === 'OFFLINE') {
-            return `<div class="flex items-center gap-1.5"><span class="status-led status-led-offline"></span><span class="text-critical font-medium text-xs">OFFLINE</span></div>`;
+            return (
+              <div className="flex items-center gap-1.5">
+                <span className="status-led status-led-offline"></span>
+                <span className="text-critical font-medium text-xs">OFFLINE</span>
+              </div>
+            );
           } else {
-            return `<div class="flex items-center gap-1.5"><span class="status-led status-led-warning"></span><span class="text-on-surface-variant font-medium text-xs">OFF</span></div>`;
+            return (
+              <div className="flex items-center gap-1.5">
+                <span className="status-led status-led-warning"></span>
+                <span className="text-on-surface-variant font-medium text-xs">OFF</span>
+              </div>
+            );
           }
         },
       },
@@ -256,6 +351,7 @@ export default function Dashboard() {
           icon={FileSpreadsheet}
           colorClass="primary"
           subtitle="IEC104 points mapped"
+          onClick={() => setShowTotalSignalsModal(true)}
         />
         <KPICard
           title="Active (ON)"
@@ -263,6 +359,7 @@ export default function Dashboard() {
           icon={Activity}
           colorClass="success"
           subtitle={`${Math.round((activeCount / (totalCount || 1)) * 100)}% active rate`}
+          onClick={() => setShowActiveSignalsModal(true)}
         />
         <KPICard
           title="Offline Signals"
@@ -270,6 +367,7 @@ export default function Dashboard() {
           icon={AlertTriangle}
           colorClass="critical"
           subtitle="Communication fail"
+          onClick={() => setShowOfflineSignalsModal(true)}
         />
         <KPICard
           title="RTU Failures"
@@ -277,6 +375,7 @@ export default function Dashboard() {
           icon={Cpu}
           colorClass="critical"
           subtitle="Feeder communication loss"
+          onClick={() => setShowRtuFailuresModal(true)}
         />
         <KPICard
           title="Duplicate Addrs"
@@ -284,6 +383,7 @@ export default function Dashboard() {
           icon={AlertTriangle}
           colorClass="warning"
           subtitle="IEC104 conflicts"
+          onClick={() => setShowDuplicateModal(true)}
         />
         <KPICard
           title="Missing Mappings"
@@ -291,6 +391,7 @@ export default function Dashboard() {
           icon={Radio}
           colorClass="info"
           subtitle="Pending SCADA configs"
+          onClick={() => setShowMissingModal(true)}
         />
       </div>
 
@@ -309,7 +410,8 @@ export default function Dashboard() {
           subtitle="Distribution of SPI, DPI, MEAS, and HW indicators"
           option={typeChartOption}
           height="220px"
-          className="lg:col-span-1"
+          className="lg:col-span-1 cursor-pointer"
+          onEvents={typeChartEvents}
         />
 
         {/* Live Alerts Pane */}
@@ -493,6 +595,617 @@ export default function Dashboard() {
             <div className="px-6 py-3 border-t border-border bg-surface-container flex justify-end">
               <button
                 onClick={() => setSelectedStateDetails(null)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold shadow-sm transition-all cursor-pointer"
+              >
+                Close Details
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Duplicate Address Mappings Modal */}
+      {showDuplicateModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-surface-container-lowest rounded-2xl shadow-2xl w-full max-w-3xl border border-border flex flex-col max-h-[85vh] overflow-hidden animate-scale-in">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-surface-container">
+              <div className="flex items-center gap-2.5">
+                <h3 className="text-base font-bold text-on-surface">
+                  IEC104 Address Conflicts
+                </h3>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] bg-warning-light text-warning border border-warning/20 font-bold uppercase tracking-wider">
+                  {Object.keys(duplicateGroups).length} Conflicts
+                </span>
+              </div>
+              <button 
+                onClick={() => setShowDuplicateModal(false)}
+                className="p-1 rounded-lg hover:bg-slate-200 text-on-surface-variant hover:text-on-surface transition-all cursor-pointer border border-transparent"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 flex-1 overflow-y-auto space-y-6">
+              {Object.keys(duplicateGroups).length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <Check className="text-success mb-2" size={48} />
+                  <p className="text-sm font-bold text-on-surface">No Duplicate Addresses</p>
+                  <p className="text-xs text-on-surface-variant mt-1">All mapped IEC104 telemetry addresses are unique.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {Object.entries(duplicateGroups).map(([address, issues]) => (
+                    <div key={address} className="border border-border rounded-xl bg-surface-container/30 overflow-hidden">
+                      <div className="bg-surface-container px-4 py-2.5 border-b border-border flex justify-between items-center">
+                        <span className="text-xs font-bold text-on-surface-variant">
+                          Address: <span className="font-mono text-xs bg-warning-light text-warning px-2 py-0.5 rounded border border-warning/10 font-bold">{address}</span>
+                        </span>
+                        <span className="text-[10px] font-bold text-critical bg-critical-light px-2 py-0.5 rounded-full border border-critical/10">
+                          {issues.length} signals share this address
+                        </span>
+                      </div>
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead className="bg-surface-container/50 text-on-surface-variant font-bold border-b border-border">
+                          <tr>
+                            <th className="p-2.5 w-[70px] text-center">Row / SL</th>
+                            <th className="p-2.5 w-[180px]">Feeder Name</th>
+                            <th className="p-2.5">Signal Description</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border bg-surface-container-lowest">
+                          {issues.map((issue) => (
+                            <tr key={issue.id} className="hover:bg-surface-container/30 transition-colors">
+                              <td className="p-2.5 text-center font-mono text-on-surface-variant font-bold">{issue.slNo}</td>
+                              <td className="p-2.5 font-semibold text-on-surface">{issue.feederName}</td>
+                              <td className="p-2.5 text-on-surface-variant">{issue.signalDescription}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-3 border-t border-border bg-surface-container flex justify-end">
+              <button
+                onClick={() => setShowDuplicateModal(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold shadow-sm transition-all cursor-pointer"
+              >
+                Close Details
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Missing Mappings Modal */}
+      {showMissingModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-surface-container-lowest rounded-2xl shadow-2xl w-full max-w-3xl border border-border flex flex-col max-h-[85vh] overflow-hidden animate-scale-in">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-surface-container">
+              <div className="flex items-center gap-2.5">
+                <h3 className="text-base font-bold text-on-surface">
+                  Missing Telemetry Mappings
+                </h3>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] bg-secondary-container text-info border border-secondary-container/20 font-bold uppercase tracking-wider">
+                  {missingIssues.length} Missing Mappings
+                </span>
+              </div>
+              <button 
+                onClick={() => setShowMissingModal(false)}
+                className="p-1 rounded-lg hover:bg-slate-200 text-on-surface-variant hover:text-on-surface transition-all cursor-pointer border border-transparent"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 flex-1 overflow-y-auto">
+              {missingIssues.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <Check className="text-success mb-2" size={48} />
+                  <p className="text-sm font-bold text-on-surface">No Missing Mappings</p>
+                  <p className="text-xs text-on-surface-variant mt-1">All mapped telemetry signals are fully configured.</p>
+                </div>
+              ) : (
+                <div className="border border-border rounded-xl overflow-hidden shadow-sm">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-surface-container text-on-surface-variant font-bold border-b border-border sticky top-0">
+                      <tr>
+                        <th className="p-3 w-[70px] text-center">Row / SL</th>
+                        <th className="p-3 w-[150px]">Feeder Name</th>
+                        <th className="p-3 w-[200px]">Signal Description</th>
+                        <th className="p-3 w-[150px]">Missing Mapping</th>
+                        <th className="p-3">Suggestion / Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border bg-surface-container-lowest">
+                      {missingIssues.map((issue) => (
+                        <tr key={issue.id} className="hover:bg-surface-container/30 transition-colors">
+                          <td className="p-3 text-center font-mono text-on-surface-variant font-bold">{issue.slNo}</td>
+                          <td className="p-3 font-semibold text-on-surface">{issue.feederName}</td>
+                          <td className="p-3 text-on-surface-variant">{issue.signalDescription}</td>
+                          <td className="p-3">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-error-container text-critical border border-error-container/20">
+                              {issue.missingField}
+                            </span>
+                          </td>
+                          <td className="p-3 text-[11px] text-on-surface-variant leading-normal font-medium">{issue.suggestion}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-3 border-t border-border bg-surface-container flex justify-end">
+              <button
+                onClick={() => setShowMissingModal(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold shadow-sm transition-all cursor-pointer"
+              >
+                Close Details
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Total Signals Modal */}
+      {showTotalSignalsModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-surface-container-lowest rounded-2xl shadow-2xl w-full max-w-4xl border border-border flex flex-col max-h-[85vh] overflow-hidden animate-scale-in">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-surface-container">
+              <div className="flex items-center gap-2.5">
+                <h3 className="text-base font-bold text-on-surface">
+                  All Mapped Signals
+                </h3>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] bg-primary-container text-primary border border-primary/20 font-bold uppercase tracking-wider">
+                  {signals.length} Signals
+                </span>
+              </div>
+              <button 
+                onClick={() => setShowTotalSignalsModal(false)}
+                className="p-1 rounded-lg hover:bg-slate-200 text-on-surface-variant hover:text-on-surface transition-all cursor-pointer border border-transparent"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 flex-1 overflow-y-auto">
+              <div className="border border-border rounded-xl overflow-hidden shadow-sm">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="bg-surface-container text-on-surface-variant font-bold border-b border-border sticky top-0">
+                    <tr>
+                      <th className="p-3 w-[70px] text-center">Row / SL</th>
+                      <th className="p-3 w-[150px]">Feeder Name</th>
+                      <th className="p-3">Signal Description</th>
+                      <th className="p-3 w-[90px]">Type</th>
+                      <th className="p-3 w-[110px] text-center">IEC104 Addr</th>
+                      <th className="p-3 w-[130px] text-center">State</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border bg-surface-container-lowest">
+                    {signals.map((sig) => (
+                      <tr key={sig.id} className="hover:bg-surface-container/30 transition-colors">
+                        <td className="p-3 text-center font-mono text-on-surface-variant font-bold">{sig.slNo}</td>
+                        <td className="p-3 font-semibold text-on-surface">{sig.feederName}</td>
+                        <td className="p-3 text-on-surface-variant leading-relaxed">{sig.description}</td>
+                        <td className="p-3">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            sig.type === 'DPI' || sig.type === 'SPI' ? 'bg-blue-50 text-blue-700 border border-blue-100' :
+                            sig.type === 'MEAS' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
+                            'bg-slate-50 text-slate-700 border border-slate-200'
+                          }`}>
+                            {sig.type}
+                          </span>
+                        </td>
+                        <td className="p-3 text-center font-mono">
+                          {sig.iec104Address ? (
+                            <span className="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded font-mono">
+                              {sig.iec104Address}
+                            </span>
+                          ) : (
+                            <span className="text-critical font-semibold">MISSING</span>
+                          )}
+                        </td>
+                        <td className="p-3">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <span className={`status-led ${
+                              sig.state === 'ON' ? 'status-led-online' :
+                              sig.state === 'OFFLINE' ? 'status-led-offline' :
+                              'status-led-warning'
+                            }`}></span>
+                            <span className={`font-medium text-xs ${
+                              sig.state === 'ON' ? 'text-success' :
+                              sig.state === 'OFFLINE' ? 'text-critical' :
+                              'text-on-surface-variant'
+                            }`}>{sig.state}</span>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-3 border-t border-border bg-surface-container flex justify-end">
+              <button
+                onClick={() => setShowTotalSignalsModal(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold shadow-sm transition-all cursor-pointer"
+              >
+                Close Details
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Active Signals Modal */}
+      {showActiveSignalsModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-surface-container-lowest rounded-2xl shadow-2xl w-full max-w-4xl border border-border flex flex-col max-h-[85vh] overflow-hidden animate-scale-in">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-surface-container">
+              <div className="flex items-center gap-2.5">
+                <h3 className="text-base font-bold text-on-surface">
+                  Active Signals (ON)
+                </h3>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] bg-emerald-50 text-success border border-[#CEEAD6] font-bold uppercase tracking-wider">
+                  {activeSignalsList.length} Active
+                </span>
+              </div>
+              <button 
+                onClick={() => setShowActiveSignalsModal(false)}
+                className="p-1 rounded-lg hover:bg-slate-200 text-on-surface-variant hover:text-on-surface transition-all cursor-pointer border border-transparent"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 flex-1 overflow-y-auto">
+              <div className="border border-border rounded-xl overflow-hidden shadow-sm">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="bg-surface-container text-on-surface-variant font-bold border-b border-border sticky top-0">
+                    <tr>
+                      <th className="p-3 w-[70px] text-center">Row / SL</th>
+                      <th className="p-3 w-[150px]">Feeder Name</th>
+                      <th className="p-3">Signal Description</th>
+                      <th className="p-3 w-[90px]">Type</th>
+                      <th className="p-3 w-[110px] text-center">IEC104 Addr</th>
+                      <th className="p-3 w-[130px] text-center">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border bg-surface-container-lowest">
+                    {activeSignalsList.map((sig) => (
+                      <tr key={sig.id} className="hover:bg-surface-container/30 transition-colors">
+                        <td className="p-3 text-center font-mono text-on-surface-variant font-bold">{sig.slNo}</td>
+                        <td className="p-3 font-semibold text-on-surface">{sig.feederName}</td>
+                        <td className="p-3 text-on-surface-variant leading-relaxed">{sig.description}</td>
+                        <td className="p-3">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            sig.type === 'DPI' || sig.type === 'SPI' ? 'bg-blue-50 text-blue-700 border border-blue-100' :
+                            sig.type === 'MEAS' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
+                            'bg-slate-50 text-slate-700 border border-slate-200'
+                          }`}>
+                            {sig.type}
+                          </span>
+                        </td>
+                        <td className="p-3 text-center font-mono">
+                          {sig.iec104Address ? (
+                            <span className="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded font-mono">
+                              {sig.iec104Address}
+                            </span>
+                          ) : (
+                            <span className="text-critical font-semibold">MISSING</span>
+                          )}
+                        </td>
+                        <td className="p-3 text-center">
+                          <span className="inline-flex items-center gap-1 bg-[#E6F4EA] text-success px-2 py-0.5 rounded font-bold border border-[#CEEAD6]">
+                            ONLINE (ON)
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-3 border-t border-border bg-surface-container flex justify-end">
+              <button
+                onClick={() => setShowActiveSignalsModal(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold shadow-sm transition-all cursor-pointer"
+              >
+                Close Details
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Offline Signals Modal */}
+      {showOfflineSignalsModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-surface-container-lowest rounded-2xl shadow-2xl w-full max-w-4xl border border-border flex flex-col max-h-[85vh] overflow-hidden animate-scale-in">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-surface-container">
+              <div className="flex items-center gap-2.5">
+                <h3 className="text-base font-bold text-on-surface">
+                  Offline Signals (Comm Failure)
+                </h3>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] bg-error-container text-critical border border-error-container/20 font-bold uppercase tracking-wider">
+                  {offlineSignalsList.length} Offline
+                </span>
+              </div>
+              <button 
+                onClick={() => setShowOfflineSignalsModal(false)}
+                className="p-1 rounded-lg hover:bg-slate-200 text-on-surface-variant hover:text-on-surface transition-all cursor-pointer border border-transparent"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 flex-1 overflow-y-auto">
+              {offlineSignalsList.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <Check className="text-success mb-2" size={48} />
+                  <p className="text-sm font-bold text-on-surface">No Offline Signals</p>
+                  <p className="text-xs text-on-surface-variant mt-1">All telemetry communication channels are healthy.</p>
+                </div>
+              ) : (
+                <div className="border border-border rounded-xl overflow-hidden shadow-sm">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-surface-container text-on-surface-variant font-bold border-b border-border sticky top-0">
+                      <tr>
+                        <th className="p-3 w-[70px] text-center">Row / SL</th>
+                        <th className="p-3 w-[150px]">Feeder Name</th>
+                        <th className="p-3">Signal Description</th>
+                        <th className="p-3 w-[90px]">Type</th>
+                        <th className="p-3 w-[110px] text-center">IEC104 Addr</th>
+                        <th className="p-3 w-[130px] text-center">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border bg-surface-container-lowest">
+                      {offlineSignalsList.map((sig) => (
+                        <tr key={sig.id} className="hover:bg-surface-container/30 transition-colors">
+                          <td className="p-3 text-center font-mono text-on-surface-variant font-bold">{sig.slNo}</td>
+                          <td className="p-3 font-semibold text-on-surface">{sig.feederName}</td>
+                          <td className="p-3 text-on-surface-variant leading-relaxed">{sig.description}</td>
+                          <td className="p-3">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                              sig.type === 'DPI' || sig.type === 'SPI' ? 'bg-blue-50 text-blue-700 border border-blue-100' :
+                              sig.type === 'MEAS' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
+                              'bg-slate-50 text-slate-700 border border-slate-200'
+                            }`}>
+                              {sig.type}
+                            </span>
+                          </td>
+                          <td className="p-3 text-center font-mono">
+                            {sig.iec104Address ? (
+                              <span className="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded font-mono">
+                                {sig.iec104Address}
+                              </span>
+                            ) : (
+                              <span className="text-critical font-semibold">MISSING</span>
+                            )}
+                          </td>
+                          <td className="p-3 text-center">
+                            <span className="inline-flex items-center gap-1 bg-red-50 text-critical px-2 py-0.5 rounded font-bold border border-red-100">
+                              OFFLINE
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-3 border-t border-border bg-surface-container flex justify-end">
+              <button
+                onClick={() => setShowOfflineSignalsModal(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold shadow-sm transition-all cursor-pointer"
+              >
+                Close Details
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* RTU Failures Modal */}
+      {showRtuFailuresModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-surface-container-lowest rounded-2xl shadow-2xl w-full max-w-3xl border border-border flex flex-col max-h-[85vh] overflow-hidden animate-scale-in">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-surface-container">
+              <div className="flex items-center gap-2.5">
+                <h3 className="text-base font-bold text-on-surface">
+                  RTU Failure Status
+                </h3>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] bg-error-container text-critical border border-error-container/20 font-bold uppercase tracking-wider">
+                  {rtuFailuresList.length} Failures
+                </span>
+              </div>
+              <button 
+                onClick={() => setShowRtuFailuresModal(false)}
+                className="p-1 rounded-lg hover:bg-slate-200 text-on-surface-variant hover:text-on-surface transition-all cursor-pointer border border-transparent"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 flex-1 overflow-y-auto">
+              {rtuFailuresList.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <Check className="text-success mb-2" size={48} />
+                  <p className="text-sm font-bold text-on-surface">No RTU Failures</p>
+                  <p className="text-xs text-on-surface-variant mt-1">All remote terminal unit links are currently healthy.</p>
+                </div>
+              ) : (
+                <div className="border border-border rounded-xl overflow-hidden shadow-sm">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-surface-container text-on-surface-variant font-bold border-b border-border sticky top-0">
+                      <tr>
+                        <th className="p-3 w-[150px]">Feeder Name</th>
+                        <th className="p-3 w-[200px]">Link / Signal</th>
+                        <th className="p-3">Incident Message</th>
+                        <th className="p-3 w-[120px] text-center">Timestamp</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border bg-surface-container-lowest">
+                      {rtuFailuresList.map((alert) => (
+                        <tr key={alert.id} className="hover:bg-surface-container/30 transition-colors">
+                          <td className="p-3 font-semibold text-on-surface">{alert.feederName}</td>
+                          <td className="p-3 text-on-surface-variant">{alert.signalName}</td>
+                          <td className="p-3 leading-normal font-medium text-critical">
+                            {alert.message}
+                          </td>
+                          <td className="p-3 text-center font-mono text-[11px] text-on-surface-variant">
+                            {new Date(alert.timestamp).toLocaleTimeString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-3 border-t border-border bg-surface-container flex justify-end">
+              <button
+                onClick={() => setShowRtuFailuresModal(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold shadow-sm transition-all cursor-pointer"
+              >
+                Close Details
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Dynamic Protocol Type Details Modal */}
+      {selectedTypeDetails && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-surface-container-lowest rounded-2xl shadow-2xl w-full max-w-3xl border border-border flex flex-col max-h-[85vh] overflow-hidden animate-scale-in">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-surface-container">
+              <div className="flex items-center gap-2.5">
+                <h3 className="text-base font-bold text-on-surface">
+                  Protocol Analysis: <span className="font-mono text-slate-800">{selectedTypeDetails.typeName}</span>
+                </h3>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] bg-blue-50 text-blue-700 border border-blue-100 font-bold uppercase tracking-wider">
+                  {selectedTypeDetails.count} Signals
+                </span>
+              </div>
+              <button 
+                onClick={() => setSelectedTypeDetails(null)}
+                className="p-1 rounded-lg hover:bg-slate-200 text-on-surface-variant hover:text-on-surface transition-all cursor-pointer border border-transparent"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 flex-1 overflow-y-auto space-y-5">
+              {/* High level metrics */}
+              <div className="grid grid-cols-2 gap-4 bg-surface-container p-4 rounded-xl border border-border">
+                <div>
+                  <span className="text-[10px] text-on-surface-variant uppercase tracking-wider font-bold">Signal Count</span>
+                  <p className="text-2xl font-bold font-mono text-on-surface mt-1">{selectedTypeDetails.count}</p>
+                </div>
+                <div>
+                  <span className="text-[10px] text-on-surface-variant uppercase tracking-wider font-bold">Proportion of Substation</span>
+                  <p className="text-2xl font-bold font-mono text-on-surface mt-1">
+                    {signals.length > 0 ? Math.round((selectedTypeDetails.count / signals.length) * 100) : 0}%
+                  </p>
+                </div>
+              </div>
+
+              {/* Signals List table/view */}
+              <div>
+                <h4 className="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-2.5">Signals matching Protocol type</h4>
+                <div className="border border-border rounded-xl overflow-hidden shadow-sm">
+                  <div className="max-h-[350px] overflow-y-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead className="bg-surface-container text-on-surface-variant font-bold border-b border-border sticky top-0">
+                        <tr>
+                          <th className="p-3 w-[70px] text-center">Row / SL</th>
+                          <th className="p-3 w-[150px]">Feeder Name</th>
+                          <th className="p-3">Signal Description</th>
+                          <th className="p-3 w-[110px] text-center">IEC104 Addr</th>
+                          <th className="p-3 w-[100px] text-center">State</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border bg-surface-container-lowest">
+                        {selectedTypeDetails.signals.length === 0 ? (
+                          <tr>
+                            <td colSpan={5} className="p-4 text-center text-on-surface-variant">
+                              No signals found for this type.
+                            </td>
+                          </tr>
+                        ) : (
+                          selectedTypeDetails.signals.map((sig) => (
+                            <tr key={sig.id} className="hover:bg-surface-container transition-colors">
+                              <td className="p-3 text-center font-mono text-on-surface-variant font-bold">{sig.slNo}</td>
+                              <td className="p-3 font-semibold text-on-surface">{sig.feederName}</td>
+                              <td className="p-3 text-on-surface-variant leading-relaxed">{sig.description}</td>
+                              <td className="p-3 text-center font-mono">
+                                {sig.iec104Address ? (
+                                  <span className="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded text-[11px] font-mono">
+                                    {sig.iec104Address}
+                                  </span>
+                                ) : (
+                                  <span className="text-critical font-semibold">MISSING</span>
+                                )}
+                              </td>
+                              <td className="p-3">
+                                <div className="flex items-center justify-center gap-1.5">
+                                  <span className={`status-led ${
+                                    sig.state === 'ON' ? 'status-led-online' :
+                                    sig.state === 'OFFLINE' ? 'status-led-offline' :
+                                    'status-led-warning'
+                                  }`}></span>
+                                  <span className={`font-medium text-xs ${
+                                    sig.state === 'ON' ? 'text-success' :
+                                    sig.state === 'OFFLINE' ? 'text-critical' :
+                                    'text-on-surface-variant'
+                                  }`}>{sig.state}</span>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-3 border-t border-border bg-surface-container flex justify-end">
+              <button
+                onClick={() => setSelectedTypeDetails(null)}
                 className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold shadow-sm transition-all cursor-pointer"
               >
                 Close Details

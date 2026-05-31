@@ -7,6 +7,7 @@ interface KPICardProps {
   icon: LucideIcon;
   subtitle: string;
   colorClass: 'primary' | 'success' | 'critical' | 'warning' | 'info';
+  onClick?: () => void;
 }
 
 const colorMap = {
@@ -17,9 +18,17 @@ const colorMap = {
   info: 'text-info bg-secondary-container'
 };
 
-export default function KPICard({ title, value, icon: Icon, subtitle, colorClass }: KPICardProps) {
+export default function KPICard({ title, value, icon: Icon, subtitle, colorClass, onClick }: KPICardProps) {
+  const isClickable = !!onClick;
   return (
-    <div className="glass-card kpi-card p-4 rounded-xl flex flex-col justify-between border-border transition-all">
+    <div 
+      onClick={onClick}
+      className={`glass-card kpi-card p-4 rounded-xl flex flex-col justify-between border-border transition-all ${
+        isClickable 
+          ? 'cursor-pointer hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:shadow-sm' 
+          : ''
+      }`}
+    >
       <div className="flex justify-between items-start mb-2">
         <h3 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">{title}</h3>
         <div className={`p-1.5 rounded-md ${colorMap[colorClass]}`}>
