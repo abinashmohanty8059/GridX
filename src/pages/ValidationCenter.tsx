@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useGrid } from '../context/GridContext';
+import { useTheme } from '../context/ThemeContext';
 import { 
   AlertOctagon, 
   CheckCircle2, 
@@ -14,9 +15,39 @@ import KPICard from '../components/KPICard';
 
 export default function ValidationCenter() {
   const { signals, validationIssues } = useGrid();
+  const { isDarkMode } = useTheme();
   const [severityFilter, setSeverityFilter] = useState<'all' | 'critical' | 'warning' | 'info'>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Styling helper for badges to ensure they render beautifully in both themes without CSS caching issues
+  const getSeverityStyle = (severity: string) => {
+    if (isDarkMode) {
+      switch (severity) {
+        case 'critical':
+          return { backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#f87171', borderColor: 'rgba(239, 68, 68, 0.3)' };
+        case 'warning':
+          return { backgroundColor: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24', borderColor: 'rgba(245, 158, 11, 0.3)' };
+        default:
+          return { backgroundColor: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', borderColor: 'rgba(59, 130, 246, 0.3)' };
+      }
+    } else {
+      switch (severity) {
+        case 'critical':
+          return { backgroundColor: '#ffdad6', color: '#ba1a1a', borderColor: '#ffb4ab' };
+        case 'warning':
+          return { backgroundColor: '#fef3c7', color: '#b45309', borderColor: '#fcd34d' };
+        default:
+          return { backgroundColor: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe' };
+      }
+    }
+  };
+
+  const getMissingStyle = () => {
+    return isDarkMode
+      ? { backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#f87171', borderColor: 'rgba(239, 68, 68, 0.3)' }
+      : { backgroundColor: '#ffdad6', color: '#ba1a1a', borderColor: '#ffb4ab' };
+  };
 
   // 1. KPI Computations
   const iec104Conflicts = useMemo(() => {
@@ -225,13 +256,8 @@ export default function ValidationCenter() {
                       <tr key={issue.id} className="hover:bg-surface-container/30 transition-colors">
                         <td className="p-3">
                           <span
-                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                              issue.severity === 'critical'
-                                ? 'bg-critical-light text-critical border border-critical/20 dark:bg-red-950/40 dark:text-red-400'
-                                : issue.severity === 'warning'
-                                ? 'bg-warning-light text-warning border border-warning/20 dark:bg-amber-950/40 dark:text-amber-400'
-                                : 'bg-blue-50 text-info border border-blue-100 dark:bg-blue-950/40 dark:text-blue-400'
-                            }`}
+                            className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border"
+                            style={getSeverityStyle(issue.severity)}
                           >
                             {issue.severity === 'critical' ? (
                               <AlertOctagon size={10} />
@@ -256,7 +282,10 @@ export default function ValidationCenter() {
                               {issue.value}
                             </span>
                           ) : (
-                            <span className="text-[10px] font-sans font-bold text-critical bg-critical/10 px-1.5 py-0.5 rounded border border-critical/20 dark:bg-red-950/30">
+                            <span 
+                              className="text-[10px] font-sans font-bold px-1.5 py-0.5 rounded border"
+                              style={getMissingStyle()}
+                            >
                               MISSING
                             </span>
                           )}
