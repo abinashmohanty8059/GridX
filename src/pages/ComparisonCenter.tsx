@@ -135,7 +135,7 @@ export default function ComparisonCenter() {
         {/* Previous File Selector */}
         <div className="glass-card p-5 bg-surface-container-lowest border border-border rounded-xl flex flex-col justify-between space-y-4">
           <div className="flex items-start gap-3.5">
-            <div className="p-2.5 bg-slate-100 dark:bg-slate-800 text-on-surface-variant rounded-lg">
+            <div className="p-2.5 bg-primary/10 text-primary rounded-lg">
               <FileSpreadsheet size={20} />
             </div>
             <div className="space-y-1">
@@ -152,7 +152,7 @@ export default function ComparisonCenter() {
           </div>
           <button 
             onClick={handleSelectPrev}
-            className="w-full flex items-center justify-center gap-1.5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold shadow-sm transition-all cursor-pointer"
+            className="w-full flex items-center justify-center gap-1.5 py-2 bg-primary hover:bg-primary-container text-white rounded-lg text-xs font-semibold shadow-sm transition-all cursor-pointer"
           >
             <Upload size={14} />
             Select Previous Excel
