@@ -7,13 +7,15 @@ import {
   AlertTriangle,
   Zap,
   Check,
-  Binary
+  Binary,
+  X
 } from 'lucide-react';
 
 export default function IEC104Analysis() {
   const { signals, validationIssues, alerts, settings } = useGrid();
   const [addressSearch, setAddressSearch] = useState('');
   const [isFullGridOpen, setIsFullGridOpen] = useState(false);
+  const [selectedCellAddress, setSelectedCellAddress] = useState<string | null>(null);
 
   // 2. Extrapolate all used addresses and their mappings
   const addressMappings = useMemo(() => {
@@ -68,6 +70,47 @@ export default function IEC104Analysis() {
         .map((issue) => issue.value)
     );
   }, [validationIssues]);
+
+  const selectedCellDetails = useMemo(() => {
+    if (!selectedCellAddress) return null;
+    const mapping = addressMappings[selectedCellAddress];
+    
+    let status = 'empty';
+    if (mapping) {
+      const hasRtuFailure = mapping.signals.some((s) => 
+        alerts.some((a) => a.title.includes("RTU Failure") && a.feederName === s.feederName && a.signalName === s.description)
+      );
+      const isDuplicate = duplicateAddresses.has(selectedCellAddress) || mapping.signals.length > 1;
+      const hasMissedMapping = mapping.signals.some((s) => 
+        validationIssues.some((vi) => vi.signalId === s.id && vi.type === 'missing_mapping')
+      );
+      const allOffline = mapping.signals.every((s) => s.state === 'OFFLINE');
+
+      if (hasRtuFailure) {
+        status = 'rtu_failure';
+      } else if (isDuplicate) {
+        status = 'duplicate';
+      } else if (hasMissedMapping) {
+        status = 'missed_mapping';
+      } else if (allOffline) {
+        status = 'offline';
+      } else {
+        status = 'active';
+      }
+    }
+
+    return {
+      address: selectedCellAddress,
+      status,
+      signals: mapping?.signals || [],
+      issues: (validationIssues || []).filter((vi) => 
+        mapping?.signals.some((s) => s.id === vi.signalId)
+      ),
+      relatedAlerts: (alerts || []).filter((a) => 
+        mapping?.signals.some((s) => s.feederName === a.feederName && s.description === a.signalName)
+      )
+    };
+  }, [selectedCellAddress, addressMappings, duplicateAddresses, validationIssues, alerts]);
 
   // 4. Generate representative slots (e.g. from minAddress to minAddress + 49 or settings range)
   // To avoid rendering 10,000 slots, we show the address block around mapped signals.
@@ -396,6 +439,10 @@ export default function IEC104Analysis() {
                 return (
                   <div
                     key={slot.address}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedCellAddress(slot.address);
+                    }}
                     title={`Address: ${slot.address}\nStatus: ${slotStyle.label}\n${
                       slot.signals.length > 0
                         ? slot.signals.map((s) => `${s.feederName}: ${s.description} (${s.state})`).join('\n')
@@ -519,6 +566,7 @@ export default function IEC104Analysis() {
                   return (
                     <div
                       key={slot.address}
+                      onClick={() => setSelectedCellAddress(slot.address)}
                       title={`Address: ${slot.address}\nStatus: ${slotStyle.label}\n${
                         slot.signals.length > 0
                           ? slot.signals.map((s) => `${s.feederName}: ${s.description} (${s.state})`).join('\n')
@@ -548,6 +596,165 @@ export default function IEC104Analysis() {
               </button>
             </div>
             
+          </div>
+        </div>
+      )}
+
+      {/* Address Cell Detail Modal */}
+      {selectedCellDetails && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in p-4">
+          <div className="bg-surface-container-lowest border border-border rounded-2xl w-full max-w-2xl flex flex-col shadow-2xl overflow-hidden animate-scale-in max-h-[85vh]">
+            
+            {/* Header */}
+            <div className="px-6 py-4 bg-surface-container border-b border-border flex justify-between items-center shrink-0">
+              <div className="flex items-center gap-3">
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-mono font-bold text-sm ${getSlotStyles(selectedCellDetails.status).color}`}>
+                  {selectedCellDetails.address}
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-on-surface tracking-tight">
+                    Registry Address: <span className="font-mono">{selectedCellDetails.address}</span>
+                  </h3>
+                  <p className="text-xs text-on-surface-variant mt-0.5">
+                    Detailed telemetry status and database mapping context.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedCellAddress(null)}
+                className="p-1 rounded-lg hover:bg-slate-200 text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer border border-transparent"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 overflow-y-auto space-y-6 flex-1 text-on-surface">
+              {/* Status Banner */}
+              <div className="flex items-center justify-between p-3 rounded-xl border border-border bg-surface-container/50">
+                <span className="text-xs font-semibold text-on-surface-variant">Slot Status</span>
+                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                  selectedCellDetails.status === 'active' ? 'bg-[#E6F4EA] text-success border border-[#CEEAD6]' :
+                  selectedCellDetails.status === 'offline' ? 'bg-blue-50 text-blue-700 border border-blue-100' :
+                  selectedCellDetails.status === 'duplicate' ? 'bg-red-50 text-critical border border-red-100' :
+                  selectedCellDetails.status === 'missed_mapping' ? 'bg-yellow-100 text-yellow-800 border border-yellow-200' :
+                  selectedCellDetails.status === 'rtu_failure' ? 'bg-red-900 text-white animate-pulse' :
+                  'bg-slate-100 text-slate-500 border border-slate-200'
+                }`}>
+                  {getSlotStyles(selectedCellDetails.status).label}
+                </span>
+              </div>
+
+              {/* Mapped Signals Section */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">
+                  Mapped Signals ({selectedCellDetails.signals.length})
+                </h4>
+                
+                {selectedCellDetails.signals.length === 0 ? (
+                  <div className="text-center py-6 border border-dashed border-border rounded-xl text-xs text-on-surface-variant bg-surface-container/20">
+                    No signals assigned. This address is available for mapping.
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {selectedCellDetails.signals.map((sig) => (
+                      <div key={sig.id} className="border border-border rounded-xl bg-surface-container/30 overflow-hidden text-xs">
+                        <div className="bg-surface-container px-4 py-2 border-b border-border flex justify-between items-center font-bold text-on-surface">
+                          <span>Row / Serial Number: {sig.slNo}</span>
+                          <span className={`status-led ${
+                            sig.state === 'ON' ? 'status-led-online' :
+                            sig.state === 'OFFLINE' ? 'status-led-offline' :
+                            'status-led-warning'
+                          }`}></span>
+                        </div>
+                        
+                        <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
+                          <div>
+                            <span className="text-[10px] text-on-surface-variant uppercase font-semibold">Feeder Name</span>
+                            <p className="font-bold text-on-surface mt-0.5">{sig.feederName}</p>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-on-surface-variant uppercase font-semibold">Signal Description</span>
+                            <p className="font-medium text-on-surface mt-0.5">{sig.description}</p>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-on-surface-variant uppercase font-semibold">Protocol / Type</span>
+                            <p className="font-mono text-on-surface mt-0.5">{sig.protocol || 'N/A'} ({sig.type})</p>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-on-surface-variant uppercase font-semibold">IEC61850 Node Path</span>
+                            <p className="font-mono text-on-surface mt-0.5 truncate" title={sig.iec61850Node}>{sig.iec61850Node || '—'}</p>
+                          </div>
+                          <div className="md:col-span-2 border-t border-border-light pt-2.5 mt-1">
+                            <span className="text-[10px] text-on-surface-variant uppercase font-semibold">Remarks</span>
+                            <p className="text-on-surface-variant mt-0.5">{sig.remarks || 'No remarks provided.'}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Validation Issues / Warnings */}
+              {selectedCellDetails.issues.length > 0 && (
+                <div className="space-y-2.5">
+                  <h4 className="text-xs font-bold text-on-surface-variant uppercase tracking-wider text-critical">
+                    Validation Alerts & Issues ({selectedCellDetails.issues.length})
+                  </h4>
+                  <div className="space-y-2">
+                    {selectedCellDetails.issues.map((vi) => (
+                      <div key={vi.id} className="p-3.5 rounded-xl border border-critical/20 bg-critical/5 flex gap-2.5 items-start text-xs">
+                        <AlertTriangle className="text-critical shrink-0 mt-0.5" size={15} />
+                        <div>
+                          <p className="font-bold text-on-surface">{vi.description}</p>
+                          <p className="text-on-surface-variant leading-normal mt-1">{vi.suggestion}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Recent Incidents / Telemetry Alerts */}
+              {selectedCellDetails.relatedAlerts.length > 0 && (
+                <div className="space-y-2.5">
+                  <h4 className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">
+                    Recent Alarms & Transitions ({selectedCellDetails.relatedAlerts.length})
+                  </h4>
+                  <div className="space-y-2">
+                    {selectedCellDetails.relatedAlerts.map((a) => (
+                      <div key={a.id} className="p-3 rounded-xl border border-border bg-surface-container/50 flex justify-between items-center text-xs">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
+                              a.severity === 'critical' ? 'bg-red-100 text-critical' : 'bg-blue-100 text-blue-800'
+                            }`}>
+                              {a.severity}
+                            </span>
+                            <span className="font-bold text-on-surface">{a.title}</span>
+                          </div>
+                          <p className="text-on-surface-variant text-[11px]">{a.message}</p>
+                        </div>
+                        <span className="text-[10px] font-mono text-on-surface-variant shrink-0">
+                          {new Date(a.timestamp).toLocaleTimeString()}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 bg-surface-container border-t border-border flex justify-end shrink-0">
+              <button
+                onClick={() => setSelectedCellAddress(null)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors cursor-pointer"
+              >
+                Close Details
+              </button>
+            </div>
           </div>
         </div>
       )}
