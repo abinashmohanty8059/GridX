@@ -31,6 +31,11 @@ export default function Dashboard() {
     count: number;
     signals: Signal[];
   } | null>(null);
+  const [selectedTypeDetails, setSelectedTypeDetails] = useState<{
+    typeName: string;
+    count: number;
+    signals: Signal[];
+  } | null>(null);
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const [showMissingModal, setShowMissingModal] = useState(false);
   const [showTotalSignalsModal, setShowTotalSignalsModal] = useState(false);
@@ -112,6 +117,22 @@ export default function Dashboard() {
 
   const chartEvents = {
     'click': onChartClick
+  };
+
+  const onTypeChartClick = (params: any) => {
+    const typeName = params.name;
+    if (typeName) {
+      const filtered = signals.filter((s) => s.type === typeName);
+      setSelectedTypeDetails({
+        typeName: typeName,
+        count: filtered.length,
+        signals: filtered,
+      });
+    }
+  };
+
+  const typeChartEvents = {
+    'click': onTypeChartClick
   };
 
   // 1. KPI Counts
@@ -389,7 +410,8 @@ export default function Dashboard() {
           subtitle="Distribution of SPI, DPI, MEAS, and HW indicators"
           option={typeChartOption}
           height="220px"
-          className="lg:col-span-1"
+          className="lg:col-span-1 cursor-pointer"
+          onEvents={typeChartEvents}
         />
 
         {/* Live Alerts Pane */}
@@ -1072,6 +1094,118 @@ export default function Dashboard() {
             <div className="px-6 py-3 border-t border-border bg-surface-container flex justify-end">
               <button
                 onClick={() => setShowRtuFailuresModal(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold shadow-sm transition-all cursor-pointer"
+              >
+                Close Details
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Dynamic Protocol Type Details Modal */}
+      {selectedTypeDetails && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-surface-container-lowest rounded-2xl shadow-2xl w-full max-w-3xl border border-border flex flex-col max-h-[85vh] overflow-hidden animate-scale-in">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-surface-container">
+              <div className="flex items-center gap-2.5">
+                <h3 className="text-base font-bold text-on-surface">
+                  Protocol Analysis: <span className="font-mono text-slate-800">{selectedTypeDetails.typeName}</span>
+                </h3>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] bg-blue-50 text-blue-700 border border-blue-100 font-bold uppercase tracking-wider">
+                  {selectedTypeDetails.count} Signals
+                </span>
+              </div>
+              <button 
+                onClick={() => setSelectedTypeDetails(null)}
+                className="p-1 rounded-lg hover:bg-slate-200 text-on-surface-variant hover:text-on-surface transition-all cursor-pointer border border-transparent"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 flex-1 overflow-y-auto space-y-5">
+              {/* High level metrics */}
+              <div className="grid grid-cols-2 gap-4 bg-surface-container p-4 rounded-xl border border-border">
+                <div>
+                  <span className="text-[10px] text-on-surface-variant uppercase tracking-wider font-bold">Signal Count</span>
+                  <p className="text-2xl font-bold font-mono text-on-surface mt-1">{selectedTypeDetails.count}</p>
+                </div>
+                <div>
+                  <span className="text-[10px] text-on-surface-variant uppercase tracking-wider font-bold">Proportion of Substation</span>
+                  <p className="text-2xl font-bold font-mono text-on-surface mt-1">
+                    {signals.length > 0 ? Math.round((selectedTypeDetails.count / signals.length) * 100) : 0}%
+                  </p>
+                </div>
+              </div>
+
+              {/* Signals List table/view */}
+              <div>
+                <h4 className="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-2.5">Signals matching Protocol type</h4>
+                <div className="border border-border rounded-xl overflow-hidden shadow-sm">
+                  <div className="max-h-[350px] overflow-y-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead className="bg-surface-container text-on-surface-variant font-bold border-b border-border sticky top-0">
+                        <tr>
+                          <th className="p-3 w-[70px] text-center">Row / SL</th>
+                          <th className="p-3 w-[150px]">Feeder Name</th>
+                          <th className="p-3">Signal Description</th>
+                          <th className="p-3 w-[110px] text-center">IEC104 Addr</th>
+                          <th className="p-3 w-[100px] text-center">State</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border bg-surface-container-lowest">
+                        {selectedTypeDetails.signals.length === 0 ? (
+                          <tr>
+                            <td colSpan={5} className="p-4 text-center text-on-surface-variant">
+                              No signals found for this type.
+                            </td>
+                          </tr>
+                        ) : (
+                          selectedTypeDetails.signals.map((sig) => (
+                            <tr key={sig.id} className="hover:bg-surface-container transition-colors">
+                              <td className="p-3 text-center font-mono text-on-surface-variant font-bold">{sig.slNo}</td>
+                              <td className="p-3 font-semibold text-on-surface">{sig.feederName}</td>
+                              <td className="p-3 text-on-surface-variant leading-relaxed">{sig.description}</td>
+                              <td className="p-3 text-center font-mono">
+                                {sig.iec104Address ? (
+                                  <span className="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded text-[11px] font-mono">
+                                    {sig.iec104Address}
+                                  </span>
+                                ) : (
+                                  <span className="text-critical font-semibold">MISSING</span>
+                                )}
+                              </td>
+                              <td className="p-3">
+                                <div className="flex items-center justify-center gap-1.5">
+                                  <span className={`status-led ${
+                                    sig.state === 'ON' ? 'status-led-online' :
+                                    sig.state === 'OFFLINE' ? 'status-led-offline' :
+                                    'status-led-warning'
+                                  }`}></span>
+                                  <span className={`font-medium text-xs ${
+                                    sig.state === 'ON' ? 'text-success' :
+                                    sig.state === 'OFFLINE' ? 'text-critical' :
+                                    'text-on-surface-variant'
+                                  }`}>{sig.state}</span>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-3 border-t border-border bg-surface-container flex justify-end">
+              <button
+                onClick={() => setSelectedTypeDetails(null)}
                 className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold shadow-sm transition-all cursor-pointer"
               >
                 Close Details
