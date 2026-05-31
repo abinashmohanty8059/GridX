@@ -31,6 +31,49 @@ export default function Dashboard() {
     count: number;
     signals: Signal[];
   } | null>(null);
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [showMissingModal, setShowMissingModal] = useState(false);
+
+  // Grouped Duplicate Mappings
+  const duplicateIssues = useMemo(() => {
+    return validationIssues
+      .filter((vi) => vi.type === 'duplicate_iec104')
+      .map((vi) => {
+        const sig = signals.find((s) => s.id === vi.signalId);
+        return {
+          ...vi,
+          slNo: sig?.slNo ?? '—',
+          signalDescription: sig?.description ?? '—',
+        };
+      });
+  }, [validationIssues, signals]);
+
+  const duplicateGroups = useMemo(() => {
+    const groups: Record<string, typeof duplicateIssues> = {};
+    duplicateIssues.forEach((issue) => {
+      const addr = issue.value;
+      if (!groups[addr]) {
+        groups[addr] = [];
+      }
+      groups[addr].push(issue);
+    });
+    return groups;
+  }, [duplicateIssues]);
+
+  // Missing Mappings
+  const missingIssues = useMemo(() => {
+    return validationIssues
+      .filter((vi) => vi.type === 'missing_mapping')
+      .map((vi) => {
+        const sig = signals.find((s) => s.id === vi.signalId);
+        return {
+          ...vi,
+          slNo: sig?.slNo ?? '—',
+          signalDescription: sig?.description ?? '—',
+          missingField: vi.field === 'iec104Address' ? 'IEC104 Address' : 'IEC61850 Node Path',
+        };
+      });
+  }, [validationIssues, signals]);
 
   const onChartClick = (params: any) => {
     const stateNameMap: Record<string, string> = {
@@ -299,6 +342,7 @@ export default function Dashboard() {
           icon={AlertTriangle}
           colorClass="warning"
           subtitle="IEC104 conflicts"
+          onClick={() => setShowDuplicateModal(true)}
         />
         <KPICard
           title="Missing Mappings"
@@ -306,6 +350,7 @@ export default function Dashboard() {
           icon={Radio}
           colorClass="info"
           subtitle="Pending SCADA configs"
+          onClick={() => setShowMissingModal(true)}
         />
       </div>
 
@@ -508,6 +553,160 @@ export default function Dashboard() {
             <div className="px-6 py-3 border-t border-border bg-surface-container flex justify-end">
               <button
                 onClick={() => setSelectedStateDetails(null)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold shadow-sm transition-all cursor-pointer"
+              >
+                Close Details
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Duplicate Address Mappings Modal */}
+      {showDuplicateModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-surface-container-lowest rounded-2xl shadow-2xl w-full max-w-3xl border border-border flex flex-col max-h-[85vh] overflow-hidden animate-scale-in">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-surface-container">
+              <div className="flex items-center gap-2.5">
+                <h3 className="text-base font-bold text-on-surface">
+                  IEC104 Address Conflicts
+                </h3>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] bg-warning-light text-warning border border-warning/20 font-bold uppercase tracking-wider">
+                  {Object.keys(duplicateGroups).length} Conflicts
+                </span>
+              </div>
+              <button 
+                onClick={() => setShowDuplicateModal(false)}
+                className="p-1 rounded-lg hover:bg-slate-200 text-on-surface-variant hover:text-on-surface transition-all cursor-pointer border border-transparent"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 flex-1 overflow-y-auto space-y-6">
+              {Object.keys(duplicateGroups).length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <Check className="text-success mb-2" size={48} />
+                  <p className="text-sm font-bold text-on-surface">No Duplicate Addresses</p>
+                  <p className="text-xs text-on-surface-variant mt-1">All mapped IEC104 telemetry addresses are unique.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {Object.entries(duplicateGroups).map(([address, issues]) => (
+                    <div key={address} className="border border-border rounded-xl bg-surface-container/30 overflow-hidden">
+                      <div className="bg-surface-container px-4 py-2.5 border-b border-border flex justify-between items-center">
+                        <span className="text-xs font-bold text-on-surface-variant">
+                          Address: <span className="font-mono text-xs bg-warning-light text-warning px-2 py-0.5 rounded border border-warning/10 font-bold">{address}</span>
+                        </span>
+                        <span className="text-[10px] font-bold text-critical bg-critical-light px-2 py-0.5 rounded-full border border-critical/10">
+                          {issues.length} signals share this address
+                        </span>
+                      </div>
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead className="bg-surface-container/50 text-on-surface-variant font-bold border-b border-border">
+                          <tr>
+                            <th className="p-2.5 w-[70px] text-center">Row / SL</th>
+                            <th className="p-2.5 w-[180px]">Feeder Name</th>
+                            <th className="p-2.5">Signal Description</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border bg-surface-container-lowest">
+                          {issues.map((issue) => (
+                            <tr key={issue.id} className="hover:bg-surface-container/30 transition-colors">
+                              <td className="p-2.5 text-center font-mono text-on-surface-variant font-bold">{issue.slNo}</td>
+                              <td className="p-2.5 font-semibold text-on-surface">{issue.feederName}</td>
+                              <td className="p-2.5 text-on-surface-variant">{issue.signalDescription}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-3 border-t border-border bg-surface-container flex justify-end">
+              <button
+                onClick={() => setShowDuplicateModal(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold shadow-sm transition-all cursor-pointer"
+              >
+                Close Details
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Missing Mappings Modal */}
+      {showMissingModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-surface-container-lowest rounded-2xl shadow-2xl w-full max-w-3xl border border-border flex flex-col max-h-[85vh] overflow-hidden animate-scale-in">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-surface-container">
+              <div className="flex items-center gap-2.5">
+                <h3 className="text-base font-bold text-on-surface">
+                  Missing Telemetry Mappings
+                </h3>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] bg-secondary-container text-info border border-secondary-container/20 font-bold uppercase tracking-wider">
+                  {missingIssues.length} Missing Mappings
+                </span>
+              </div>
+              <button 
+                onClick={() => setShowMissingModal(false)}
+                className="p-1 rounded-lg hover:bg-slate-200 text-on-surface-variant hover:text-on-surface transition-all cursor-pointer border border-transparent"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 flex-1 overflow-y-auto">
+              {missingIssues.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <Check className="text-success mb-2" size={48} />
+                  <p className="text-sm font-bold text-on-surface">No Missing Mappings</p>
+                  <p className="text-xs text-on-surface-variant mt-1">All mapped telemetry signals are fully configured.</p>
+                </div>
+              ) : (
+                <div className="border border-border rounded-xl overflow-hidden shadow-sm">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-surface-container text-on-surface-variant font-bold border-b border-border sticky top-0">
+                      <tr>
+                        <th className="p-3 w-[70px] text-center">Row / SL</th>
+                        <th className="p-3 w-[150px]">Feeder Name</th>
+                        <th className="p-3 w-[200px]">Signal Description</th>
+                        <th className="p-3 w-[150px]">Missing Mapping</th>
+                        <th className="p-3">Suggestion / Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border bg-surface-container-lowest">
+                      {missingIssues.map((issue) => (
+                        <tr key={issue.id} className="hover:bg-surface-container/30 transition-colors">
+                          <td className="p-3 text-center font-mono text-on-surface-variant font-bold">{issue.slNo}</td>
+                          <td className="p-3 font-semibold text-on-surface">{issue.feederName}</td>
+                          <td className="p-3 text-on-surface-variant">{issue.signalDescription}</td>
+                          <td className="p-3">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-error-container text-critical border border-error-container/20">
+                              {issue.missingField}
+                            </span>
+                          </td>
+                          <td className="p-3 text-[11px] text-on-surface-variant leading-normal font-medium">{issue.suggestion}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-3 border-t border-border bg-surface-container flex justify-end">
+              <button
+                onClick={() => setShowMissingModal(false)}
                 className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold shadow-sm transition-all cursor-pointer"
               >
                 Close Details
