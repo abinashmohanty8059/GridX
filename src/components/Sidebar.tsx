@@ -61,6 +61,10 @@ export default function Sidebar() {
           <Network size={18} className="text-indigo-400 group-hover:text-indigo-300 transition-colors" />
           <span>IEC 104 Analysis</span>
         </NavLink>
+        <NavLink to="/comparison" className={getNavClass}>
+          <FileSpreadsheet size={18} className="text-amber-400 group-hover:text-amber-300 transition-colors" />
+          <span>Comparison Center</span>
+        </NavLink>
         <NavLink to="/excel" className={getNavClass}>
           <FileSpreadsheet size={18} className="text-cyan-400 group-hover:text-cyan-300 transition-colors" />
           <span>Excel Viewer</span>

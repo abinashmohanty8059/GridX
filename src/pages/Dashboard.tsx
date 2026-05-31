@@ -181,7 +181,7 @@ export default function Dashboard() {
           if (val === 'DPI' || val === 'SPI') badgeColor = 'bg-blue-50 text-blue-700 border border-blue-100';
           if (val === 'MEAS') badgeColor = 'bg-emerald-50 text-emerald-700 border border-emerald-100';
           if (val === 'HW') badgeColor = 'bg-amber-50 text-amber-700 border border-amber-100';
-          return `<span class="px-2 py-0.5 rounded text-[11px] font-bold ${badgeColor}">${val}</span>`;
+          return <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${badgeColor}`}>{val}</span>;
         },
       },
       {
@@ -192,8 +192,8 @@ export default function Dashboard() {
         cellClass: 'data-mono text-center',
         cellRenderer: (params: any) => {
           const addr = params.value;
-          if (!addr) return '<span class="text-critical font-semibold">MISSING</span>';
-          return `<span class="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded font-mono">${addr}</span>`;
+          if (!addr) return <span className="text-critical font-semibold">MISSING</span>;
+          return <span className="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded font-mono">{addr}</span>;
         },
       },
       { field: 'iec61850Node', headerName: 'IEC61850 Path', width: 240, sortable: true, cellClass: 'data-mono font-mono text-xs' },
@@ -205,11 +205,26 @@ export default function Dashboard() {
         cellRenderer: (params: any) => {
           const state = params.value;
           if (state === 'ON') {
-            return `<div class="flex items-center gap-1.5"><span class="status-led status-led-online"></span><span class="text-success font-medium text-xs">ON</span></div>`;
+            return (
+              <div className="flex items-center gap-1.5">
+                <span className="status-led status-led-online"></span>
+                <span className="text-success font-medium text-xs">ON</span>
+              </div>
+            );
           } else if (state === 'OFFLINE') {
-            return `<div class="flex items-center gap-1.5"><span class="status-led status-led-offline"></span><span class="text-critical font-medium text-xs">OFFLINE</span></div>`;
+            return (
+              <div className="flex items-center gap-1.5">
+                <span className="status-led status-led-offline"></span>
+                <span className="text-critical font-medium text-xs">OFFLINE</span>
+              </div>
+            );
           } else {
-            return `<div class="flex items-center gap-1.5"><span class="status-led status-led-warning"></span><span class="text-on-surface-variant font-medium text-xs">OFF</span></div>`;
+            return (
+              <div className="flex items-center gap-1.5">
+                <span className="status-led status-led-warning"></span>
+                <span className="text-on-surface-variant font-medium text-xs">OFF</span>
+              </div>
+            );
           }
         },
       },

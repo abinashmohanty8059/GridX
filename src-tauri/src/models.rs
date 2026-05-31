@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -26,7 +27,7 @@ pub struct ValidationIssue {
     pub id: String,
     #[serde(rename = "type")]
     pub issue_type: String, // "duplicate_iec104", "missing_mapping", "rtu_failure", etc.
-    pub severity: String, // "critical", "warning"
+    pub severity: String, // "critical", "warning", "info"
     pub signal_id: String,
     pub feeder_name: String,
     pub description: String, // maps to description in TS
@@ -44,15 +45,18 @@ pub struct DashboardMetrics {
     pub duplicates: usize,
     pub missing_mappings: usize,
     pub offline_signals: usize,
-    pub signal_distribution: std::collections::HashMap<String, usize>,
-    pub protocol_distribution: std::collections::HashMap<String, usize>,
+    pub signal_distribution: HashMap<String, usize>,
+    pub protocol_distribution: HashMap<String, usize>,
+    pub rtu_failures: usize,
+    pub validation_issue_count: usize,
+    pub recent_changes: usize,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Alert {
     pub id: String,
-    pub severity: String, // "critical", "warning", "info" (lowercase)
+    pub severity: String, // "critical", "warning", "info"
     pub title: String,
     pub message: String,
     pub timestamp: String,
@@ -69,4 +73,52 @@ pub struct ProcessedData {
     pub issues: Vec<ValidationIssue>,
     pub metrics: DashboardMetrics,
     pub alerts: Vec<Alert>,
+}
+
+// --- Comparison Engine Models ---
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SignalChange {
+    pub signal_name: String,
+    pub feeder_name: String,
+    pub change_type: String, // "new", "removed", "status_change", "iec_change", "node_change", "protocol_change"
+    pub old_value: String,
+    pub new_value: String,
+    pub severity: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ComparisonSummary {
+    pub total_compared_signals: usize,
+    pub added_signals: usize,
+    pub removed_signals: usize,
+    pub status_changes: usize,
+    pub iec_changes: usize,
+    pub node_changes: usize,
+    pub protocol_changes: usize,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ComparisonResult {
+    pub previous_file: String,
+    pub current_file: String,
+    pub changes: Vec<SignalChange>,
+    pub summary: ComparisonSummary,
+}
+
+// --- History Engine Models ---
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct HistoryEvent {
+    pub timestamp: String,
+    pub signal: String,
+    pub feeder: String,
+    pub old_state: String,
+    pub new_state: String,
+    pub severity: String,
+    pub category: String,
 }
