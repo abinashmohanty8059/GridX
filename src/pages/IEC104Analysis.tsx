@@ -106,9 +106,13 @@ export default function IEC104Analysis() {
       issues: (validationIssues || []).filter((vi) => 
         mapping?.signals.some((s) => s.id === vi.signalId)
       ),
-      relatedAlerts: (alerts || []).filter((a) => 
-        mapping?.signals.some((s) => s.feederName === a.feederName && s.description === a.signalName)
-      )
+      relatedAlerts: (alerts || [])
+        .filter((a) => 
+          mapping?.signals.some((s) => s.feederName === a.feederName && s.description === a.signalName)
+        )
+        .filter((value, index, self) =>
+          self.findIndex((t) => t.title === value.title && t.message === value.message && t.timestamp === value.timestamp) === index
+        )
     };
   }, [selectedCellAddress, addressMappings, duplicateAddresses, validationIssues, alerts]);
 
