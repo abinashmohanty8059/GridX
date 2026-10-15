@@ -67,43 +67,12 @@ fn generate_report_text(report_type: String, data_json: String) -> Result<String
     report_engine::generate_report(&report_type, &data_json)
 }
 
-/// WebView2 handles trackpad pinch itself (zooming the whole page) unless told
-/// not to. Turning that off makes pinch arrive as Ctrl+wheel events, which the
-/// schema canvas turns into its own zoom.
-#[cfg(windows)]
-fn disable_native_pinch_zoom(app: &tauri::App) {
-    use tauri::Manager;
-    use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Settings5;
-    use windows_core::Interface;
-    for (_, webview) in app.webview_windows() {
-        let _ = webview.with_webview(|wv| unsafe {
-            let result = wv
-                .controller()
-                .CoreWebView2()
-                .and_then(|core| core.Settings())
-                .and_then(|settings| settings.cast::<ICoreWebView2Settings5>())
-                .and_then(|settings| settings.SetIsPinchZoomEnabled(false));
-            match result {
-                Ok(()) => log::info!("WebView2 native pinch zoom disabled"),
-                Err(e) => log::warn!("Could not disable WebView2 pinch zoom: {e}"),
-            }
-        });
-    }
-}
-
-#[cfg(not(windows))]
-fn disable_native_pinch_zoom(_app: &tauri::App) {}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_log::Builder::new().build())
-        .setup(|app| {
-            disable_native_pinch_zoom(app);
-            Ok(())
-        })
         .invoke_handler(tauri::generate_handler![
             process_excel_file,
             compare_excel_files,

@@ -374,6 +374,20 @@ function Canvas() {
     return () => el.removeEventListener('wheel', onWheel, { capture: true });
   }, [rf, hasTables]);
 
+  // If the webview ever zooms the whole page itself (pinch not handed to the canvas), record it.
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    let logged = false;
+    const onResize = () => {
+      if (logged || Math.abs(vv.scale - 1) < 0.01) return;
+      logged = true;
+      logInfo(`canvas: webview zoomed the page natively (visual scale=${vv.scale.toFixed(2)})`).catch(() => { /* browser */ });
+    };
+    vv.addEventListener('resize', onResize);
+    return () => vv.removeEventListener('resize', onResize);
+  }, []);
+
   // Keyboard zoom: Ctrl + = / Ctrl + - / Ctrl + 0 (fit).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

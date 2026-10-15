@@ -28,8 +28,3 @@ tauri-plugin-dialog = "2.7.1"
 tauri-plugin-log = "2"
 log = "0.4"
 
-
-# Let trackpad pinch reach the page instead of WebView2's built-in page zoom.
-[target.'cfg(windows)'.dependencies]
-webview2-com = "0.38"
-windows-core = "0.61"
