@@ -357,7 +357,7 @@ function Canvas() {
         const delta = e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY;
         // Pinch arrives as Ctrl+wheel. Some touchpad drivers send small fractional steps,
         // others send ±100 "notches" — both zoom, and one step never jumps more than 35%.
-        const speed = Math.abs(delta) >= 50 ? 0.0025 : 0.012;
+        const speed = Math.abs(delta) >= 50 ? 0.0025 : 0.035;
         const factor = Math.min(1.35, Math.max(1 / 1.35, Math.exp(-delta * speed)));
         const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, vp.zoom * factor));
         const rect = el.getBoundingClientRect();
