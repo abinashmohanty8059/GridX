@@ -7,7 +7,6 @@ import '@xyflow/react/dist/style.css';
 import {
   Check, ChevronDown, ChevronsDownUp, ChevronsUpDown, Eye, EyeOff, LayoutGrid, Magnet, Maximize2, PanelRightOpen, Search, UploadCloud, X,
 } from 'lucide-react';
-import { useTheme } from '../../context/ThemeContext';
 import { info as logInfo } from '@tauri-apps/plugin-log';
 import { useDE } from '../store';
 import { traceColumn, tablePath, TablePath } from '../graph';
@@ -20,6 +19,8 @@ import { LaneNode, LaneNodeData } from '../canvas/LaneNode';
 import HoverCard from '../canvas/ColumnTooltip';
 import { FlowEdge, FlowEdgeData } from '../canvas/FlowEdge';
 import Inspector from '../canvas/Inspector';
+import FocusBar from '../canvas/FocusBar';
+import TableFilter from '../canvas/TableFilter';
 
 const nodeTypes = { table: TableNode, lane: LaneNode };
 const edgeTypes = { flow: FlowEdge };
@@ -80,13 +81,13 @@ function SearchBox({ onPick }: { onPick: (kind: 'table' | 'column', id: string) 
 
 function Canvas() {
   const { graph, ws, selection, select, setView } = useDE();
-  const { isDarkMode } = useTheme();
   const rf = useReactFlow();
 
   // The source lane mirrors the input lane 1:1, so it starts hidden (SRC chip shows it).
   const [hiddenLayers, setHiddenLayers] = useState<Set<LayerId>>(new Set(['source']));
   const [mode, setMode] = useState<EdgeMode>('lineage');
   const [hideIsolated, setHideIsolated] = useState(false);
+  const [hiddenTables, setHiddenTables] = useState<Set<string>>(new Set());
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [limits, setLimits] = useState<Record<string, number>>({});
   const [filters, setFilters] = useState<Record<string, string>>({});
@@ -117,18 +118,20 @@ function Canvas() {
     if (pathPair) return pathOf(pathPair);
     if (selection?.kind !== 'table' || !graph.tableById.has(selection.id)) return null;
     const p = tablePath(graph, [selection.id], [selection.id]);
-    for (const r of graph.relations) {
-      if (r.fromTable === selection.id) p.tables.add(r.toTable);
-      if (r.toTable === selection.id) p.tables.add(r.fromTable);
+    if (mode === 'relations') {
+      for (const r of graph.relations) {
+        if (r.fromTable === selection.id) p.tables.add(r.toTable);
+        if (r.toTable === selection.id) p.tables.add(r.fromTable);
+      }
     }
     return p;
-  }, [pathPair, pathOf, selection, graph]);
+  }, [pathPair, pathOf, selection, graph, mode]);
 
   // ── Which tables are on the canvas ────────────────────────────────────────
   const lanes = useMemo(() => lanesFor(graph, hiddenLayers), [graph, hiddenLayers]);
   const visibleTables = useMemo(() => {
     const laneSet = new Set(lanes);
-    let ts = graph.tables.filter((t) => laneSet.has(t.layer));
+    let ts = graph.tables.filter((t) => laneSet.has(t.layer) && !hiddenTables.has(t.id));
     if (hideIsolated) {
       const connected = new Set<string>();
       graph.tableEdges.forEach((e) => {
@@ -141,7 +144,7 @@ function Canvas() {
       ts = ts.filter((t) => t.layer !== 'source' || graph.tableEdges.some((e) => e.from === t.id && shown.has(e.to)));
     }
     return ts;
-  }, [graph, lanes, hideIsolated, trace, selTable]);
+  }, [graph, lanes, hideIsolated, trace, selTable, hiddenTables]);
 
   const pinned = useMemo(() => new Set(trace ? [...trace.cols.keys()] : []), [trace]);
   const views = useMemo(() => {
@@ -260,7 +263,7 @@ function Canvas() {
       id, source, target, sourceHandle: sh, targetHandle: th, type: 'flow', data, zIndex,
       markerEnd: arrow ? { type: MarkerType.ArrowClosed, color: arrow, width: 9, height: 9 } : undefined,
     });
-    const neutral = isDarkMode ? '#475569' : '#a3b1c2';
+    const neutral = '#3e4c63';
     const focusing = !!(trace || focusPath);
     const anyHover = !!(hoverPath || hoverCol);
     const isActive = (a: string, b: string) => {
@@ -347,7 +350,7 @@ function Canvas() {
       });
     }
     return out;
-  }, [mode, trace, focusPath, hoverPath, graph, visibleTables, views, selTable, isDarkMode, hoverTable, hoverCol, hoverEdge, lineDetail]);
+  }, [mode, trace, focusPath, hoverPath, graph, visibleTables, views, selTable, hoverTable, hoverCol, hoverEdge, lineDetail]);
 
   // ── Trackpad & mouse: pinch / Ctrl+scroll zooms, two-finger swipe pans, mouse wheel zooms ──
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -490,7 +493,7 @@ function Canvas() {
   return (
     <CanvasCtx.Provider value={actions}>
       <div className="h-full flex">
-        <div ref={wrapRef} className="flex-1 relative min-w-0">
+        <div ref={wrapRef} className="de-canvas flex-1 relative min-w-0">
           {/* Toolbar */}
           <div className="absolute top-3 left-3 right-3 z-10 flex flex-wrap items-center gap-2 pointer-events-none">
             <div className="pointer-events-auto"><SearchBox onPick={(kind, id) => select({ kind, id })} /></div>
@@ -522,6 +525,9 @@ function Canvas() {
                   </button>
                 );
               })}
+            </div>
+            <div className="pointer-events-auto">
+              <TableFilter g={graph} layers={lanes} hidden={hiddenTables} setHidden={setHiddenTables} />
             </div>
             <div className="pointer-events-auto flex gap-1">
               <button onClick={() => setHideIsolated((v) => !v)} className={`btn-de ${hideIsolated ? 'btn-de-active' : ''}`} title="Hide tables with no lineage to other visible tables">
@@ -573,11 +579,15 @@ function Canvas() {
 
           {pathPair && !selection && focusPath && (
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-3 px-4 py-2 rounded-full glass-card-elevated !rounded-full text-[12px] text-on-surface">
-              Path through <b className="font-mono">{graph.tableById.get(pathPair.split('>')[0])?.name}</b> → <b className="font-mono">{graph.tableById.get(pathPair.split('>')[1])?.name}</b> · {focusPath.tables.size} tables
+              Path <b className="font-mono">{graph.tableById.get(pathPair.split('>')[0])?.name}</b> → <b className="font-mono">{graph.tableById.get(pathPair.split('>')[1])?.name}</b> · {focusPath.tables.size} tables on this path
               <button onClick={() => setPathPair(null)} className="text-on-surface-variant hover:text-on-surface cursor-pointer flex items-center gap-1"><X size={12} /> Clear</button>
             </div>
           )}
-          {selection && (
+          {selection?.kind === 'table' && (
+            <FocusBar key={selection.id} g={graph} tableId={selection.id} onClear={() => select(null)}
+              onPick={(id) => select({ kind: 'table', id })} />
+          )}
+          {selection?.kind === 'column' && (
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-3 px-4 py-2 rounded-full glass-card-elevated !rounded-full text-[12px] text-on-surface">
               {trace ? <>Tracing <b className="font-mono">{graph.colById.get(selection.id)?.col.name}</b> · {trace.cols.size - 1} connected columns across {trace.tables.size} tables</>
                 : <>Focused on <b className="font-mono">{graph.tableById.get(selection.id)?.name}</b>{focusPath ? ` · its full path covers ${focusPath.tables.size} tables` : ''}</>}
@@ -611,7 +621,7 @@ function Canvas() {
               const p = pathOf(pair);
               window.setTimeout(() => rf.fitView({ nodes: [...p.tables].map((id) => ({ id })), padding: 0.15, duration: 500, maxZoom: 1 }), 60);
             }}
-            colorMode={isDarkMode ? 'dark' : 'light'}
+            colorMode="dark"
             minZoom={MIN_ZOOM}
             maxZoom={MAX_ZOOM}
             zoomOnScroll={false}
@@ -623,12 +633,12 @@ function Canvas() {
             elementsSelectable={false}
             proOptions={{ hideAttribution: true }}
           >
-            <Background variant={BackgroundVariant.Dots} gap={22} size={1} color={isDarkMode ? '#1e293b' : '#cbd5e1'} />
+            <Background variant={BackgroundVariant.Dots} gap={22} size={1.4} color="#2a3446" bgColor="#030406" />
             <Controls showInteractive={false} position="bottom-left" />
             <MiniMap pannable zoomable position="bottom-right"
               nodeColor={(n) => (n.type === 'lane' ? 'transparent' : (n.data as TableNodeData).color)}
               nodeStrokeColor={(n) => (n.type === 'lane' ? (n.data as LaneNodeData).meta.color : 'transparent')}
-              maskColor={isDarkMode ? 'rgba(15,17,23,0.7)' : 'rgba(247,249,251,0.7)'} />
+              maskColor="rgba(3,4,6,0.72)" />
           </ReactFlow>
           {hover && <HoverCard hover={hover} graph={graph} />}
           <ZoomBadge />
