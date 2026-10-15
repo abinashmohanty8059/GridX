@@ -14,6 +14,7 @@
     "@tauri-apps/plugin-dialog": "^2.7.1",
     "@tauri-apps/plugin-log": "^2.8.0",
     "@tauri-apps/plugin-opener": "^2",
+    "@xyflow/react": "^12.10.0",
     "ag-grid-community": "^35.3.0",
     "ag-grid-react": "^35.3.0",
     "echarts": "^6.1.0",

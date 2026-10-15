@@ -8,13 +8,16 @@ import {
   Network,
   Info,
   Moon,
-  Sun
+  Sun,
+  Repeat
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
+import { useAppMode } from '../context/AppModeContext';
 import logoImg from '../assets/square-image.jpg';
 
 export default function Sidebar() {
   const { isDarkMode, toggleDarkMode } = useTheme();
+  const { switchMode } = useAppMode();
   const getNavClass = ({ isActive }: { isActive: boolean }) => 
     `sidebar-item group ${isActive ? 'sidebar-item-active' : ''}`;
 
@@ -94,6 +97,14 @@ export default function Sidebar() {
       </div>
       
       <div className="px-6 pt-4 mt-auto border-t border-white/5 space-y-3">
+        <button
+          onClick={switchMode}
+          title="Switch between SCADA Automation and Data Engineering"
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors cursor-pointer text-[11px] text-white/60 hover:text-white/80 font-medium"
+        >
+          <Repeat size={14} className="text-violet-300" />
+          Switch workspace
+        </button>
         {/* Quick theme toggle */}
         <button
           onClick={toggleDarkMode}
