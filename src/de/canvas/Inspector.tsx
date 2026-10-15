@@ -361,7 +361,7 @@ function Overview() {
           <li>Lines between tables show <b>how many columns</b> flow from one table to the next. Thicker = more.</li>
           <li><b>Hover</b> anything to learn about it: a column shows what it means and where it comes from, a table header shows what the table is, a line shows which columns travel along it.</li>
           <li><b>Click</b> a column to light up its full path, from source field to report.</li>
-          <li><b>Zoom:</b> pinch on the trackpad, Ctrl + scroll, or the mouse wheel. <b>Move around:</b> two-finger swipe, or drag the background.</li>
+          <li><b>Zoom:</b> pinch on the trackpad, Ctrl + scroll, the mouse wheel, or Ctrl + = / Ctrl + − (Ctrl + 0 fits everything). <b>Move around:</b> two-finger swipe, or drag the background.</li>
           <li><b>Double-click</b> a table header (or ▾) to see every column, with a filter box.</li>
           <li>Switch to <b>Relationships</b> to see how tables join through primary and foreign keys.</li>
         </ul>

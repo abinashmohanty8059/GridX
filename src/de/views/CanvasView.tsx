@@ -321,27 +321,45 @@ function Canvas() {
 
   // ── Trackpad & mouse: pinch / Ctrl+scroll zooms, two-finger swipe pans, mouse wheel zooms ──
   const wrapRef = useRef<HTMLDivElement>(null);
-  const pinchLogged = useRef(false);
+  // One log line per gesture (until 60 lines) so trackpad behaviour can be diagnosed from the log file.
+  const gesture = useRef<{ n: number; ctrl: number; dx: number; dy: number; min: number; max: number; modes: string; z0: number; timer?: number } | null>(null);
+  const gesturesLogged = useRef(0);
   const hasTables = ws.tables.length > 0;
   useEffect(() => {
     const el = wrapRef.current;
     if (!el) return;
+    const record = (e: WheelEvent, zoomBefore: number) => {
+      if (gesturesLogged.current >= 60) return;
+      let g = gesture.current;
+      if (!g) g = gesture.current = { n: 0, ctrl: 0, dx: 0, dy: 0, min: Infinity, max: -Infinity, modes: '', z0: zoomBefore };
+      g.n++; if (e.ctrlKey) g.ctrl++;
+      g.dx += e.deltaX; g.dy += e.deltaY;
+      g.min = Math.min(g.min, e.deltaY); g.max = Math.max(g.max, e.deltaY);
+      if (!g.modes.includes(String(e.deltaMode))) g.modes += e.deltaMode;
+      window.clearTimeout(g.timer);
+      g.timer = window.setTimeout(() => {
+        const x = gesture.current!;
+        gesture.current = null;
+        gesturesLogged.current++;
+        logInfo(`canvas wheel gesture: events=${x.n} ctrl=${x.ctrl} sumDX=${x.dx.toFixed(1)} sumDY=${x.dy.toFixed(1)} dy[min,max]=[${x.min.toFixed(1)},${x.max.toFixed(1)}] mode=${x.modes} zoom ${Math.round(x.z0 * 100)}%->${Math.round(rf.getViewport().zoom * 100)}%`).catch(() => { /* browser */ });
+      }, 400);
+    };
     const onWheel = (e: WheelEvent) => {
       const target = e.target as HTMLElement;
       if (target.closest('.nowheel') || !target.closest('.react-flow')) return;
       e.preventDefault();
       e.stopPropagation();
       const vp = rf.getViewport();
-      // Mouse wheels send whole "notches" (±100 on Windows); trackpads send small deltas.
+      record(e, vp.zoom);
+      // Mouse wheels send whole "notches" (±100 on Windows); precision trackpads send small deltas.
       const mouseWheel = e.deltaMode !== 0 || (e.deltaX === 0 && Math.abs(e.deltaY) >= 50 && Number.isInteger(e.deltaY));
-      if (e.ctrlKey && !pinchLogged.current) {
-        pinchLogged.current = true;
-        logInfo(`canvas: pinch/ctrl-wheel received (deltaY=${e.deltaY}, mode=${e.deltaMode})`).catch(() => { /* browser */ });
-      }
       if (e.ctrlKey || e.metaKey || (mouseWheel && !e.shiftKey)) {
         const delta = e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY;
-        const speed = e.ctrlKey && !mouseWheel ? 0.012 : 0.0018;
-        const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, vp.zoom * Math.exp(-delta * speed)));
+        // Pinch arrives as Ctrl+wheel. Some touchpad drivers send small fractional steps,
+        // others send ±100 "notches" — both zoom, and one step never jumps more than 35%.
+        const speed = Math.abs(delta) >= 50 ? 0.0025 : 0.012;
+        const factor = Math.min(1.35, Math.max(1 / 1.35, Math.exp(-delta * speed)));
+        const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, vp.zoom * factor));
         const rect = el.getBoundingClientRect();
         const px = e.clientX - rect.left; const py = e.clientY - rect.top;
         const k = zoom / vp.zoom;
@@ -355,6 +373,18 @@ function Canvas() {
     el.addEventListener('wheel', onWheel, { passive: false, capture: true });
     return () => el.removeEventListener('wheel', onWheel, { capture: true });
   }, [rf, hasTables]);
+
+  // Keyboard zoom: Ctrl + = / Ctrl + - / Ctrl + 0 (fit).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || (e.target as HTMLElement).closest('input, textarea, select')) return;
+      if (e.key === '=' || e.key === '+') { e.preventDefault(); rf.zoomIn({ duration: 150 }); }
+      else if (e.key === '-') { e.preventDefault(); rf.zoomOut({ duration: 150 }); }
+      else if (e.key === '0') { e.preventDefault(); rf.fitView({ padding: 0.08, duration: 300 }); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [rf]);
 
   // ── Actions for nodes ─────────────────────────────────────────────────────
   const actions = useMemo<CanvasActions>(() => ({
