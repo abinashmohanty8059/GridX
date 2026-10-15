@@ -507,3 +507,35 @@ export function traceTable(g: Graph, tableId: string) {
 }
 
 export const isUpstreamLayer = (a: LayerId, b: LayerId) => layerIndex(a) < layerIndex(b);
+
+export interface TablePath {
+  tables: Set<string>;
+  pairs: Set<string>;   // `${from}>${to}` for every table-to-table hop on the path
+}
+
+/**
+ * Every table upstream of `ups` and downstream of `downs`, following table-level
+ * lineage hop by hop (input → derived → semantic → output), plus the hops between.
+ */
+export function tablePath(g: Graph, ups: string[], downs: string[], extraPairs: string[] = []): TablePath {
+  const tables = new Set<string>([...ups, ...downs]);
+  const pairs = new Set<string>(extraPairs);
+  const walk = (start: string[], dir: 'up' | 'down') => {
+    const seen = new Set(start);
+    let frontier = [...start];
+    while (frontier.length) {
+      const next: string[] = [];
+      for (const e of g.tableEdges) {
+        const from = dir === 'up' ? e.to : e.from;
+        const to = dir === 'up' ? e.from : e.to;
+        if (!frontier.includes(from)) continue;
+        pairs.add(`${e.from}>${e.to}`);
+        if (!seen.has(to)) { seen.add(to); tables.add(to); next.push(to); }
+      }
+      frontier = next;
+    }
+  };
+  walk(ups, 'up');
+  walk(downs, 'down');
+  return { tables, pairs };
+}

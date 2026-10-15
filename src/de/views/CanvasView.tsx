@@ -10,7 +10,7 @@ import {
 import { useTheme } from '../../context/ThemeContext';
 import { info as logInfo } from '@tauri-apps/plugin-log';
 import { useDE } from '../store';
-import { traceColumn } from '../graph';
+import { traceColumn, tablePath, TablePath } from '../graph';
 import { computeView, layoutCanvas, lanesFor, LAYOUT_PRESETS, LayoutPreset, NodeView, SPACING, Spacing, WRAP_AT } from '../layout';
 import { LayerId, layerMeta } from '../types';
 import { EDGE_INFO } from '../explain';
@@ -105,13 +105,24 @@ function Canvas() {
   // ── Focus / trace ─────────────────────────────────────────────────────────
   const trace = useMemo(() => (selection?.kind === 'column' && graph.colById.has(selection.id) ? traceColumn(graph, selection.id) : null), [selection, graph]);
   const selTable = selection?.kind === 'table' ? selection.id : selection?.kind === 'column' ? graph.colById.get(selection.id)?.table.id : undefined;
-  const neighbours = useMemo(() => {
-    if (selection?.kind !== 'table') return null;
-    const s = new Set([selection.id]);
-    for (const e of graph.tableEdges) { if (e.from === selection.id) s.add(e.to); if (e.to === selection.id) s.add(e.from); }
-    for (const r of graph.relations) { if (r.fromTable === selection.id) s.add(r.toTable); if (r.toTable === selection.id) s.add(r.fromTable); }
-    return s;
-  }, [selection, graph]);
+  // A clicked line (`${from}>${to}`) pins the whole chain it belongs to.
+  const [pathPair, setPathPair] = useState<string | null>(null);
+  useEffect(() => { if (selection) setPathPair(null); }, [selection]);
+  const pathOf = useCallback((pair: string) => {
+    const [a, b] = pair.split('>');
+    return tablePath(graph, [a], [b], [pair]);
+  }, [graph]);
+  // Focus = every table upstream and downstream of the clicked line or table.
+  const focusPath = useMemo<TablePath | null>(() => {
+    if (pathPair) return pathOf(pathPair);
+    if (selection?.kind !== 'table' || !graph.tableById.has(selection.id)) return null;
+    const p = tablePath(graph, [selection.id], [selection.id]);
+    for (const r of graph.relations) {
+      if (r.fromTable === selection.id) p.tables.add(r.toTable);
+      if (r.toTable === selection.id) p.tables.add(r.fromTable);
+    }
+    return p;
+  }, [pathPair, pathOf, selection, graph]);
 
   // ── Which tables are on the canvas ────────────────────────────────────────
   const lanes = useMemo(() => lanesFor(graph, hiddenLayers), [graph, hiddenLayers]);
@@ -183,7 +194,7 @@ function Canvas() {
       const v = views.get(t.id)!;
       const traceSub: Record<string, number> | null = trace ? {} : null;
       if (trace && traceSub) for (const c of v.visible) { const d = trace.cols.get(c.id); if (d !== undefined) traceSub[c.id] = d; }
-      const dimmed = trace ? !trace.tables.has(t.id) : neighbours ? !neighbours.has(t.id) : false;
+      const dimmed = trace ? !trace.tables.has(t.id) : focusPath ? !focusPath.tables.has(t.id) : false;
       ns.push({
         id: t.id, type: 'table',
         position: manualPos.current.get(t.id) ?? layout.pos.get(t.id) ?? { x: 0, y: 0 },
@@ -196,7 +207,7 @@ function Canvas() {
       });
     }
     return ns;
-  }, [layout, visibleTables, views, trace, neighbours, selection, graph, flags, filters, vertical]);
+  }, [layout, visibleTables, views, trace, focusPath, selection, graph, flags, filters, vertical]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   useEffect(() => {
@@ -214,9 +225,29 @@ function Canvas() {
   const hoverTable = hover?.kind === 'table' ? hover.id : hover?.kind === 'column' ? graph.colById.get(hover.id)?.table.id : undefined;
   const hoverCol = hover?.kind === 'column' ? hover.id : undefined;
   const hoverEdge = hover?.kind === 'edge' ? hover.id : undefined;
+  const hoverTableOnly = hover?.kind === 'table' ? hover.id : undefined;
+
+  /** Table pair a line belongs to: table lines, bundled column lines, or single column links. */
+  const edgePair = useCallback((id: string): string | null => {
+    if (id.startsWith('te:')) return id.slice(3);
+    if (id.startsWith('cb:')) { const [a, , b] = id.slice(3).split('|'); return `${a}>${b}`; }
+    const e = graph.edges.find((x) => x.id === id);
+    if (!e) return null;
+    const a = graph.colById.get(e.from)?.table.id; const b = graph.colById.get(e.to)?.table.id;
+    return a && b && a !== b ? `${a}>${b}` : null;
+  }, [graph]);
+  const hoverPath = useMemo<TablePath | null>(() => {
+    if (mode !== 'lineage') return null;
+    if (hoverEdge) { const p = edgePair(hoverEdge); return p ? pathOf(p) : null; }
+    if (hoverTableOnly) return tablePath(graph, [hoverTableOnly], [hoverTableOnly]);
+    return null;
+  }, [mode, hoverEdge, hoverTableOnly, edgePair, pathOf, graph]);
 
   const edges = useMemo(() => {
     const out: Edge[] = [];
+    // Each id may appear once: duplicates leave stale lines behind or make lines vanish.
+    const ids = new Set<string>();
+    const push = (e: Edge) => { if (!ids.has(e.id)) { ids.add(e.id); out.push(e); } };
     const shown = new Set(visibleTables.map((t) => t.id));
     const visibleCols = new Map<string, Set<string>>();
     views.forEach((v, id) => visibleCols.set(id, new Set(v.visible.map((c) => c.id))));
@@ -230,8 +261,12 @@ function Canvas() {
       markerEnd: arrow ? { type: MarkerType.ArrowClosed, color: arrow, width: 9, height: 9 } : undefined,
     });
     const neutral = isDarkMode ? '#475569' : '#a3b1c2';
-    const focusing = !!(trace || neighbours);
-    const anyHover = !!(hoverTable || hoverEdge);
+    const focusing = !!(trace || focusPath);
+    const anyHover = !!(hoverPath || hoverCol);
+    const isActive = (a: string, b: string) => {
+      const pair = `${a}>${b}`;
+      return focusPath ? focusPath.pairs.has(pair) : !!hoverPath?.pairs.has(pair);
+    };
 
     if (mode === 'lineage') {
       // Column-to-column lines: the traced path, or the hovered column's own links.
@@ -243,11 +278,10 @@ function Canvas() {
         if (!shown.has(a.id) || !shown.has(b.id)) continue;
         const info = EDGE_INFO[e.kind];
         const same = a.id === b.id;
-        out.push(mk(e.id, a.id, b.id, handle(e.from, 'out'), handle(e.to, same ? 'rin' : 'in'), {
+        push(mk(e.id, a.id, b.id, handle(e.from, 'out'), handle(e.to, same ? 'rin' : 'in'), {
           color: info.color, width: hoverEdge === e.id ? 3 : 2, opacity: 0.4 + e.confidence * 0.6, dash: info.dash, loop: same,
         }, info.color, 5));
       }
-      const focusId = selection?.kind === 'table' ? selection.id : undefined;
       if (lineDetail === 'column' && !trace) {
         // Every column link drawn row to row. Links whose columns are folded away
         // attach to the table header and are bundled into one line with a count.
@@ -262,12 +296,10 @@ function Canvas() {
         }
         bundles.forEach((x, k) => {
           const rowLevel = x.sh !== 't-out' || x.th !== 't-in';
-          const hot = !!hoverTable && (x.a === hoverTable || x.b === hoverTable);
-          const on = focusId ? x.a === focusId || x.b === focusId : false;
-          const active = on || hot;
-          const opacity = focusing ? (on ? 0.95 : 0.05) : anyHover ? (active ? 1 : 0.08) : rowLevel ? 0.7 : 0.4;
+          const active = isActive(x.a, x.b);
+          const opacity = focusing ? (active ? 0.95 : 0.04) : anyHover ? (active ? 1 : 0.08) : rowLevel ? 0.7 : 0.4;
           const kindColor = EDGE_INFO[x.kind].color;
-          out.push(mk(x.n === 1 ? x.id : `cb:${k}`, x.a, x.b, x.sh, x.th, {
+          push(mk(x.n === 1 ? x.id : `cb:${k}`, x.a, x.b, x.sh, x.th, {
             color: active || rowLevel ? kindColor : neutral,
             width: rowLevel ? 1.2 : 1 + Math.min(1.2, Math.log2(x.n) / 4),
             opacity, dash: rowLevel ? EDGE_INFO[x.kind].dash : undefined,
@@ -277,14 +309,12 @@ function Canvas() {
       }
       for (const te of (lineDetail === 'column' && !trace ? [] : graph.tableEdges)) {
         if (!shown.has(te.from) || !shown.has(te.to)) continue;
-        const on = focusId ? te.from === focusId || te.to === focusId : false;
-        const hot = !focusing && !!hoverTable && (te.from === hoverTable || te.to === hoverTable);
         const isHover = hoverEdge === te.id;
-        const active = on || hot || isHover;
-        const opacity = trace ? 0.05 : focusing ? (on ? 0.95 : 0.05) : anyHover ? (active ? 1 : 0.1) : 0.55;
-        out.push(mk(te.id, te.from, te.to, 't-out', 't-in', {
+        const active = isActive(te.from, te.to) || isHover;
+        const opacity = trace ? 0.05 : focusing ? (active ? 0.95 : 0.04) : anyHover ? (active ? 1 : 0.08) : 0.55;
+        push(mk(te.id, te.from, te.to, 't-out', 't-in', {
           color: active ? layerMeta(graph.tableById.get(te.to)!.layer).color : neutral,
-          width: (active ? 1.6 : 1) + Math.min(1.4, Math.log2(te.count) / 4),
+          width: (isHover ? 2.4 : active ? 1.6 : 1) + Math.min(1.4, Math.log2(te.count) / 4),
           opacity,
           label: active ? `${te.count} col${te.count > 1 ? 's' : ''}` : undefined,
         }, undefined, active ? 4 : 0));
@@ -303,13 +333,13 @@ function Canvas() {
         const on = focusT ? p.from === focusT || p.to === focusT : false;
         if (on || (lineDetail === 'column' && !focusT)) {
           for (const r of p.rels) {
-            out.push(mk(r.id, p.from, p.to, handle(r.from, 'out'), handle(r.to, 'rin'), {
+            push(mk(r.id, p.from, p.to, handle(r.from, 'out'), handle(r.to, 'rin'), {
               color: '#64748b', width: hoverEdge === r.id ? 2.6 : 1.8, opacity: 1, dash: '4 3', loop: true, label: 'FK',
             }, '#64748b', 5));
           }
         } else {
           const isHover = hoverEdge === `rel:${k}`;
-          out.push(mk(`rel:${k}`, p.from, p.to, 't-rel-out', 't-rel-in', {
+          push(mk(`rel:${k}`, p.from, p.to, 't-rel-out', 't-rel-in', {
             color: isHover ? '#64748b' : neutral, width: isHover ? 2 : 1 + Math.min(1, p.rels.length / 4), dash: '4 3', loop: true,
             opacity: focusT ? 0.06 : isHover ? 1 : 0.6,
           }));
@@ -317,7 +347,7 @@ function Canvas() {
       });
     }
     return out;
-  }, [mode, trace, neighbours, graph, visibleTables, views, selection, selTable, isDarkMode, hoverTable, hoverCol, hoverEdge, lineDetail]);
+  }, [mode, trace, focusPath, hoverPath, graph, visibleTables, views, selTable, isDarkMode, hoverTable, hoverCol, hoverEdge, lineDetail]);
 
   // ── Trackpad & mouse: pinch / Ctrl+scroll zooms, two-finger swipe pans, mouse wheel zooms ──
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -541,10 +571,16 @@ function Canvas() {
             </div>
           </div>
 
+          {pathPair && !selection && focusPath && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-3 px-4 py-2 rounded-full glass-card-elevated !rounded-full text-[12px] text-on-surface">
+              Path through <b className="font-mono">{graph.tableById.get(pathPair.split('>')[0])?.name}</b> → <b className="font-mono">{graph.tableById.get(pathPair.split('>')[1])?.name}</b> · {focusPath.tables.size} tables
+              <button onClick={() => setPathPair(null)} className="text-on-surface-variant hover:text-on-surface cursor-pointer flex items-center gap-1"><X size={12} /> Clear</button>
+            </div>
+          )}
           {selection && (
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-3 px-4 py-2 rounded-full glass-card-elevated !rounded-full text-[12px] text-on-surface">
               {trace ? <>Tracing <b className="font-mono">{graph.colById.get(selection.id)?.col.name}</b> · {trace.cols.size - 1} connected columns across {trace.tables.size} tables</>
-                : <>Focused on <b className="font-mono">{graph.tableById.get(selection.id)?.name}</b></>}
+                : <>Focused on <b className="font-mono">{graph.tableById.get(selection.id)?.name}</b>{focusPath ? ` · its full path covers ${focusPath.tables.size} tables` : ''}</>}
               <button onClick={() => select(null)} className="text-on-surface-variant hover:text-on-surface cursor-pointer flex items-center gap-1"><X size={12} /> Clear</button>
             </div>
           )}
@@ -558,7 +594,7 @@ function Canvas() {
             onNodeDragStop={(_, n) => { manualPos.current.set(n.id, n.position); }}
             snapToGrid={snap}
             snapGrid={[20, 20]}
-            onPaneClick={() => select(null)}
+            onPaneClick={() => { select(null); setPathPair(null); }}
             edgeTypes={edgeTypes}
             onEdgeMouseEnter={(e, edge) => setHover({ kind: 'edge', id: edge.id, x: e.clientX, y: e.clientY })}
             onEdgeMouseMove={(e, edge) => setHover({ kind: 'edge', id: edge.id, x: e.clientX, y: e.clientY })}
@@ -566,9 +602,14 @@ function Canvas() {
             // Lines need a click handler to receive hover at all; clicking one focuses what it feeds.
             onEdgeClick={(_, edge) => {
               clickedOnCanvas.current = true;
+              // A column link traces that column; any other line pins its whole table path.
               const lin = graph.edges.find((x) => x.id === edge.id);
-              if (lin) select({ kind: 'column', id: lin.to });
-              else select({ kind: 'table', id: edge.target });
+              if (lin && !edge.id.startsWith('cb:') && lineDetail === 'table') { select({ kind: 'column', id: lin.to }); return; }
+              const pair = edgePair(edge.id) ?? `${edge.source}>${edge.target}`;
+              select(null);
+              setPathPair(pair);
+              const p = pathOf(pair);
+              window.setTimeout(() => rf.fitView({ nodes: [...p.tables].map((id) => ({ id })), padding: 0.15, duration: 500, maxZoom: 1 }), 60);
             }}
             colorMode={isDarkMode ? 'dark' : 'light'}
             minZoom={MIN_ZOOM}
@@ -580,7 +621,6 @@ function Canvas() {
             edgesFocusable={false}
             nodesConnectable={false}
             elementsSelectable={false}
-            onlyRenderVisibleElements
             proOptions={{ hideAttribution: true }}
           >
             <Background variant={BackgroundVariant.Dots} gap={22} size={1} color={isDarkMode ? '#1e293b' : '#cbd5e1'} />
